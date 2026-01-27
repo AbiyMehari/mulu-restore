@@ -9,6 +9,7 @@ out/
 .env
 .env.local
 .env.*.local
+PRD.md
 
 # logs
 npm-debug.log*
