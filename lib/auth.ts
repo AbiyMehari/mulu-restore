@@ -50,14 +50,16 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Normalize email
+        const normalizedEmail = credentials.email.trim().toLowerCase();
+        const plainPassword = credentials.password;
+
         try {
           // Connect to MongoDB
           await connectDB();
 
-          // Find user by email (case-insensitive)
-          const user = await User.findOne({
-            email: { $regex: new RegExp(`^${credentials.email}$`, 'i') },
-          });
+          // Find user by email (stored lowercased in DB)
+          const user = await User.findOne({ email: normalizedEmail });
 
           // If user not found, return null
           if (!user) {
@@ -66,7 +68,7 @@ export const authOptions: NextAuthOptions = {
 
           // Compare password with stored passwordHash using bcryptjs
           const isValidPassword = await bcrypt.compare(
-            credentials.password,
+            plainPassword,
             user.passwordHash
           );
 
@@ -79,7 +81,7 @@ export const authOptions: NextAuthOptions = {
           return {
             id: user._id.toString(),
             email: user.email,
-            name: user.name || null,
+            name: user.name ?? null,
             role: user.role,
           };
         } catch (error) {
