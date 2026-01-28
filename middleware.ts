@@ -3,15 +3,18 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 export async function middleware(req: NextRequest) {
+  // Only protect /admin routes (config.matcher ensures this)
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
   });
 
+  // Not authenticated → redirect to login page
   if (!token) {
-    return NextResponse.redirect(new URL("/api/auth/signin", req.url));
+    return NextResponse.redirect(new URL("/auth/login", req.url));
   }
 
+  // Authenticated but not admin → redirect to home
   if (token.role !== "admin") {
     return NextResponse.redirect(new URL("/", req.url));
   }
