@@ -1,6 +1,10 @@
 import 'dotenv/config';
+import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+
+// Ensure .env.local is loaded for local development
+dotenv.config({ path: '.env.local', override: true });
 
 import connectDB from '@/lib/db';
 import User from '@/models/User';

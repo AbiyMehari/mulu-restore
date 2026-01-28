@@ -2,6 +2,9 @@ import { NextAuthOptions } from 'next-auth';
 import { getServerSession } from 'next-auth/next';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { JWT } from 'next-auth/jwt';
+import bcrypt from 'bcryptjs';
+import connectDB from '@/lib/db';
+import User from '@/models/User';
 
 /**
  * User roles as defined in PRD
@@ -42,21 +45,48 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        // Validate email + password exist
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Email and password are required');
+          return null;
         }
 
-        // TODO: Implement password hashing verification (e.g., using bcrypt)
-        // TODO: Implement user lookup from database using credentials.email
-        // Example structure:
-        // const user = await User.findOne({ email: credentials.email });
-        // if (!user) return null;
-        // const isValidPassword = await bcrypt.compare(credentials.password, user.password);
-        // if (!isValidPassword) return null;
-        // return { id: user._id.toString(), email: user.email, name: user.name, role: user.role };
+        try {
+          // Connect to MongoDB
+          await connectDB();
 
-        // Placeholder return - replace with actual database lookup
-        throw new Error('User authentication not yet implemented');
+          // Find user by email (case-insensitive)
+          const user = await User.findOne({
+            email: { $regex: new RegExp(`^${credentials.email}$`, 'i') },
+          });
+
+          // If user not found, return null
+          if (!user) {
+            return null;
+          }
+
+          // Compare password with stored passwordHash using bcryptjs
+          const isValidPassword = await bcrypt.compare(
+            credentials.password,
+            user.passwordHash
+          );
+
+          // If password is invalid, return null
+          if (!isValidPassword) {
+            return null;
+          }
+
+          // If valid, return user data
+          return {
+            id: user._id.toString(),
+            email: user.email,
+            name: user.name || null,
+            role: user.role,
+          };
+        } catch (error) {
+          // On any error, return null (do NOT throw)
+          console.error('Authentication error:', error);
+          return null;
+        }
       },
     }),
   ],
