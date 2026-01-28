@@ -2,8 +2,12 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +20,7 @@ export default function LoginPage() {
       email,
       password,
       redirect: true,
-      callbackUrl: '/',
+      callbackUrl,
     });
 
     if (result?.error) {
