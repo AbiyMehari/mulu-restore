@@ -1,20 +1,47 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+type Category = {
+  _id: string;
+  name: string;
+  slug: string;
+};
+
 export default function NewProductPage() {
+  const router = useRouter();
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [condition, setCondition] = useState<'vintage' | 'restored' | 'used'>('vintage');
+  const [condition, setCondition] = useState<'new' | 'excellent' | 'good' | 'fair'>('new');
   const [shortDescription, setShortDescription] = useState('');
   const [fullDescription, setFullDescription] = useState('');
   const [imagesText, setImagesText] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/categories');
+        if (res.ok) {
+          const data = await res.json();
+          setCategories(Array.isArray(data) ? data : data.items || []);
+        }
+      } catch (err) {
+        console.error('Failed to load categories:', err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    }
+    loadCategories();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,18 +51,18 @@ export default function NewProductPage() {
     const images = imagesText
       .split('\n')
       .map((line) => line.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((url) => ({ url }));
 
-    const priceCents = Math.round(parseFloat(price || '0') * 100);
     const body = {
       title,
       slug,
-      price: priceCents,
-      stockQuantity: parseInt(stock || '0', 10),
+      price: parseInt(price || '0', 10),
+      stock: parseInt(stock || '0', 10),
       categoryId: categoryId || undefined,
       condition,
-      shortDescription,
-      fullDescription,
+      descriptionShort: shortDescription,
+      description: fullDescription,
       images,
     };
 
@@ -55,7 +82,7 @@ export default function NewProductPage() {
       }
 
       setMessage({ type: 'success', text: 'Product created successfully.' });
-      setSubmitting(false);
+      router.push('/admin/products');
     } catch (err) {
       setMessage({ type: 'error', text: 'Request failed.' });
       setSubmitting(false);
@@ -68,6 +95,9 @@ export default function NewProductPage() {
 
   return (
     <div>
+      <div style={{ marginBottom: '1rem' }}>
+        <Link href="/admin/products">← Back to Products</Link>
+      </div>
       <h1>New Product</h1>
       <form onSubmit={handleSubmit} style={{ maxWidth: '500px', marginTop: '1rem' }}>
         <div style={formStyle}>
@@ -91,11 +121,11 @@ export default function NewProductPage() {
           />
         </div>
         <div style={formStyle}>
-          <label style={labelStyle}>Price (EUR)</label>
+          <label style={labelStyle}>Price (cents)</label>
           <input
             type="number"
-            step="0.01"
             min="0"
+            step="1"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             required
@@ -114,34 +144,43 @@ export default function NewProductPage() {
           />
         </div>
         <div style={formStyle}>
-          <label style={labelStyle}>Category ID</label>
-          <input
-            type="text"
+          <label style={labelStyle}>Category</label>
+          <select
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
+            required
+            disabled={loadingCategories}
             style={inputStyle}
-          />
+          >
+            <option value="">Select a category</option>
+            {categories.map((cat) => (
+              <option key={cat._id} value={cat._id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div style={formStyle}>
           <label style={labelStyle}>Condition</label>
           <select
             value={condition}
-            onChange={(e) => setCondition(e.target.value as 'vintage' | 'restored' | 'used')}
+            onChange={(e) => setCondition(e.target.value as 'new' | 'excellent' | 'good' | 'fair')}
             style={inputStyle}
           >
-            <option value="vintage">Vintage</option>
-            <option value="restored">Restored</option>
-            <option value="used">Used</option>
+            <option value="new">New</option>
+            <option value="excellent">Excellent</option>
+            <option value="good">Good</option>
+            <option value="fair">Fair</option>
           </select>
         </div>
         <div style={formStyle}>
           <label style={labelStyle}>Short description</label>
-          <input
-            type="text"
+          <textarea
             value={shortDescription}
             onChange={(e) => setShortDescription(e.target.value)}
             required
-            style={inputStyle}
+            rows={2}
+            style={{ ...inputStyle, width: '100%' }}
           />
         </div>
         <div style={formStyle}>
@@ -178,16 +217,8 @@ export default function NewProductPage() {
           <button type="submit" disabled={submitting} style={{ padding: '0.5rem 1rem' }}>
             {submitting ? 'Saving...' : 'Create Product'}
           </button>
-          <Link href="/admin/products" style={{ padding: '0.5rem 1rem' }}>
-            Cancel
-          </Link>
         </div>
       </form>
-      {message?.type === 'success' && (
-        <p style={{ marginTop: '1rem' }}>
-          <Link href="/admin/products">Back to Products</Link>
-        </p>
-      )}
     </div>
   );
 }
