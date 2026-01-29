@@ -7,41 +7,75 @@ import { createProductSchema } from '@/lib/validations';
 import mongoose from 'mongoose';
 import { ZodError } from 'zod';
 
-/**
- * POST /api/admin/products
- * Creates a new product
- * Admin-only endpoint
- */
-export async function POST(request: NextRequest) {
+async function ensureAdmin() {
   try {
-    // Check admin authentication
     await requireAdmin();
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Authentication required';
     if (message === 'Authentication required') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     if (message === 'Admin access required') {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  return null;
+}
+
+/**
+ * GET /api/admin/products
+ * List all products (admin)
+ */
+export async function GET() {
+  const authResponse = await ensureAdmin();
+  if (authResponse) return authResponse;
 
   try {
-    // Connect to database
+    await connectDB();
+    const [items, total] = await Promise.all([
+      Product.find({})
+        .populate('category', 'name slug')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Product.countDocuments({}),
+    ]);
+    return NextResponse.json({ items, total });
+  } catch (error) {
+    console.error('Error listing products:', error);
+    return NextResponse.json({ error: 'Failed to list products' }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/admin/products
+ * Creates a new product (admin)
+ */
+export async function POST(request: NextRequest) {
+  const authResponse = await ensureAdmin();
+  if (authResponse) return authResponse;
+
+  try {
     await connectDB();
 
-    // Parse and validate request body
-    const body = await request.json();
+    let body = await request.json();
+    // Normalize client field names to schema
+    if (body.stockQuantity !== undefined) {
+      body.stock = body.stockQuantity;
+      delete body.stockQuantity;
+    }
+    if (body.shortDescription !== undefined) {
+      body.descriptionShort = body.shortDescription;
+      delete body.shortDescription;
+    }
+    if (body.fullDescription !== undefined) {
+      body.description = body.fullDescription;
+      delete body.fullDescription;
+    }
+    if (Array.isArray(body.images) && body.images.every((x: unknown) => typeof x === 'string')) {
+      body.images = body.images.map((url: string) => ({ url }));
+    }
+
     const validatedData = createProductSchema.parse(body);
 
     // Verify category exists
@@ -56,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (!category) {
       return NextResponse.json(
         { error: 'Category not found' },
-        { status: 404 }
+        { status: 400 }
       );
     }
 
