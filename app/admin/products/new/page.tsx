@@ -29,13 +29,15 @@ export default function NewProductPage() {
   useEffect(() => {
     async function loadCategories() {
       try {
-        const res = await fetch('/api/categories');
-        if (res.ok) {
-          const data = await res.json();
-          setCategories(Array.isArray(data) ? data : data.items || []);
+        const res = await fetch('/api/categories', { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error('Failed to fetch categories');
         }
+        const data = await res.json();
+        setCategories(data.items ?? []);
       } catch (err) {
         console.error('Failed to load categories:', err);
+        setCategories([]);
       } finally {
         setLoadingCategories(false);
       }
