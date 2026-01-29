@@ -10,20 +10,19 @@ import connectDB from '@/lib/db';
 import User from '@/models/User';
 import Category from '@/models/Category';
 
+const ADMIN_EMAIL = 'admin@mulu-restore.local';
 const ADMIN_PASSWORD = 'Admin123!';
 
 async function ensureAdminUser() {
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@mulu-restore.local';
-
-  console.log(`\n[seed] Ensuring admin user exists: ${adminEmail}`);
+  console.log(`\n[seed] Ensuring admin user exists: ${ADMIN_EMAIL}`);
 
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
 
   await User.findOneAndUpdate(
-    { email: adminEmail },
+    { email: ADMIN_EMAIL },
     {
       $set: {
-        email: adminEmail,
+        email: ADMIN_EMAIL,
         name: 'Mulu ReStore Admin',
         role: 'admin',
         passwordHash,
@@ -75,9 +74,8 @@ async function main() {
     console.log('\n[seed] Seeding completed successfully.');
 
     // Final summary
-    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@mulu-restore.local';
     console.log('\n--- Seed summary ---');
-    console.log('Admin email:', adminEmail);
+    console.log('Admin email:', ADMIN_EMAIL);
     console.log('Admin password:', ADMIN_PASSWORD);
     console.log('Categories: Chairs, Tables, Sofas, Storage');
     console.log('---\n');

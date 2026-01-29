@@ -45,23 +45,14 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        console.log('[auth] Credentials authorize called');
-        console.log(
-          '[auth] Credentials keys:',
-          credentials ? Object.keys(credentials) : null
-        );
-
         // Validate email + password exist
         if (!credentials?.email || !credentials?.password) {
-          console.log('[auth] Missing email or password');
           return null;
         }
 
         // Normalize email
         const normalizedEmail = credentials.email.trim().toLowerCase();
         const plainPassword = credentials.password;
-
-        console.log('[auth] Normalized email:', normalizedEmail);
 
         try {
           // Connect to MongoDB
@@ -73,23 +64,14 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!user) {
-            console.log('[auth] User not found for email:', normalizedEmail);
             return null;
           }
-
-          console.log('[auth] User found with email:', user.email);
-          console.log(
-            '[auth] User has passwordHash:',
-            Boolean((user as any).passwordHash)
-          );
 
           // Compare password with stored passwordHash using bcryptjs
           const isValidPassword = await bcrypt.compare(
             plainPassword,
             (user as any).passwordHash
           );
-
-          console.log('[auth] Password comparison result:', isValidPassword);
 
           // If password is invalid, return null
           if (!isValidPassword) {
