@@ -74,6 +74,16 @@ async function main() {
     await ensureDefaultCategories();
 
     console.log('\n[seed] Seeding completed successfully.');
+
+    // Final summary
+    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@mulu-restore.local';
+    const adminPassword =
+      process.env.SEED_ADMIN_PASSWORD || 'changeme-admin-password';
+    console.log('\n--- Seed summary ---');
+    console.log('Admin email:', adminEmail);
+    console.log('Admin password:', adminPassword);
+    console.log('Categories: Chairs, Tables, Sofas, Storage');
+    console.log('---\n');
   } catch (error) {
     console.error('\n[seed] Seeding failed:', error);
     process.exitCode = 1;
