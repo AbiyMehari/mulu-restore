@@ -1,6 +1,30 @@
 import Link from 'next/link';
+import { cookies, headers } from 'next/headers';
 
-export default function AdminProductsPage() {
+export default async function AdminProductsPage() {
+  const cookieStore = await cookies();
+  const headersList = await headers();
+  const host = headersList.get('host') || 'localhost:3000';
+  const protocol = headersList.get('x-forwarded-proto') || 'http';
+  const base = `${protocol}://${host}`;
+
+  const res = await fetch(`${base}/api/admin/products`, {
+    cache: 'no-store',
+    headers: { Cookie: cookieStore.toString() },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return (
+      <div>
+        <h1>Products</h1>
+        <p style={{ color: '#b91c1c' }}>{err.error || 'Failed to load products'}</p>
+      </div>
+    );
+  }
+
+  const { items = [], total = 0 } = await res.json();
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -30,14 +54,26 @@ export default function AdminProductsPage() {
           </tr>
         </thead>
         <tbody>
-          <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-            <td style={{ padding: '0.75rem' }}>Sample product</td>
-            <td style={{ padding: '0.75rem' }}>—</td>
-            <td style={{ padding: '0.75rem' }}>—</td>
-            <td style={{ padding: '0.75rem' }}>—</td>
-            <td style={{ padding: '0.75rem' }}>—</td>
-            <td style={{ padding: '0.75rem' }}>—</td>
-          </tr>
+          {items.length === 0 ? (
+            <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+              <td style={{ padding: '0.75rem' }} colSpan={6}>
+                No products yet. Add one to get started.
+              </td>
+            </tr>
+          ) : (
+            items.map((item: { _id: string; title: string; price: number; stockQuantity: number; category?: { name: string }; isActive: boolean }) => (
+              <tr key={item._id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <td style={{ padding: '0.75rem' }}>{item.title}</td>
+                <td style={{ padding: '0.75rem' }}>{item.price != null ? (item.price / 100).toFixed(2) : '—'}</td>
+                <td style={{ padding: '0.75rem' }}>{item.stockQuantity ?? '—'}</td>
+                <td style={{ padding: '0.75rem' }}>{item.category?.name ?? '—'}</td>
+                <td style={{ padding: '0.75rem' }}>{item.isActive ? 'Active' : 'Inactive'}</td>
+                <td style={{ padding: '0.75rem' }}>
+                  <Link href={`/admin/products/${item._id}`}>Edit</Link>
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
