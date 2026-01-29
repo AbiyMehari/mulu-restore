@@ -45,8 +45,15 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        console.log('[auth] Credentials authorize called');
+        console.log(
+          '[auth] Credentials keys:',
+          credentials ? Object.keys(credentials) : null
+        );
+
         // Validate email + password exist
         if (!credentials?.email || !credentials?.password) {
+          console.log('[auth] Missing email or password');
           return null;
         }
 
@@ -54,23 +61,35 @@ export const authOptions: NextAuthOptions = {
         const normalizedEmail = credentials.email.trim().toLowerCase();
         const plainPassword = credentials.password;
 
+        console.log('[auth] Normalized email:', normalizedEmail);
+
         try {
           // Connect to MongoDB
           await connectDB();
 
-          // Find user by email (stored lowercased in DB)
-          const user = await User.findOne({ email: normalizedEmail });
+          // Find user by email (case-insensitive)
+          const user = await User.findOne({
+            email: { $regex: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          });
 
-          // If user not found, return null
           if (!user) {
+            console.log('[auth] User not found for email:', normalizedEmail);
             return null;
           }
+
+          console.log('[auth] User found with email:', user.email);
+          console.log(
+            '[auth] User has passwordHash:',
+            Boolean((user as any).passwordHash)
+          );
 
           // Compare password with stored passwordHash using bcryptjs
           const isValidPassword = await bcrypt.compare(
             plainPassword,
-            user.passwordHash
+            (user as any).passwordHash
           );
+
+          console.log('[auth] Password comparison result:', isValidPassword);
 
           // If password is invalid, return null
           if (!isValidPassword) {
