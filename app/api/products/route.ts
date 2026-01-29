@@ -45,10 +45,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Execute query with pagination
-    const [products, total] = await Promise.all([
+    const [items, total] = await Promise.all([
       Product.find(filter)
         .populate('category', 'name slug')
-        .select('-fullDescription') // Exclude full description from list
+        .select('-fullDescription')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNumber)
@@ -56,21 +56,11 @@ export async function GET(request: NextRequest) {
       Product.countDocuments(filter),
     ]);
 
-    // Calculate pagination metadata
-    const totalPages = Math.ceil(total / limitNumber);
-    const hasNextPage = pageNumber < totalPages;
-    const hasPrevPage = pageNumber > 1;
-
     return NextResponse.json({
-      products,
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total,
-        totalPages,
-        hasNextPage,
-        hasPrevPage,
-      },
+      items,
+      page: pageNumber,
+      limit: limitNumber,
+      total,
     });
   } catch (error) {
     console.error('Error fetching products:', error);

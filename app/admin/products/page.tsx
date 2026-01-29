@@ -26,13 +26,17 @@ export default function AdminProductsPage() {
             <th style={{ textAlign: 'left', padding: '0.75rem' }}>Stock</th>
             <th style={{ textAlign: 'left', padding: '0.75rem' }}>Category</th>
             <th style={{ textAlign: 'left', padding: '0.75rem' }}>Status</th>
+            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-            <td style={{ padding: '0.75rem' }} colSpan={5}>
-              No products yet. Add one to get started.
-            </td>
+            <td style={{ padding: '0.75rem' }}>Sample product</td>
+            <td style={{ padding: '0.75rem' }}>—</td>
+            <td style={{ padding: '0.75rem' }}>—</td>
+            <td style={{ padding: '0.75rem' }}>—</td>
+            <td style={{ padding: '0.75rem' }}>—</td>
+            <td style={{ padding: '0.75rem' }}>—</td>
           </tr>
         </tbody>
       </table>
