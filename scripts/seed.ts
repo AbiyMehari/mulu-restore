@@ -10,32 +10,31 @@ import connectDB from '@/lib/db';
 import User from '@/models/User';
 import Category from '@/models/Category';
 
+const ADMIN_PASSWORD = 'Admin123!';
+
 async function ensureAdminUser() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@mulu-restore.local';
-  const adminPassword =
-    process.env.SEED_ADMIN_PASSWORD || 'changeme-admin-password';
 
   console.log(`\n[seed] Ensuring admin user exists: ${adminEmail}`);
 
-  const existing = await User.findOne({ email: adminEmail });
+  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
 
-  if (existing) {
-    console.log('[seed] Admin user already exists, skipping creation.');
-    return;
-  }
+  await User.findOneAndUpdate(
+    { email: adminEmail },
+    {
+      $set: {
+        email: adminEmail,
+        name: 'Mulu ReStore Admin',
+        role: 'admin',
+        passwordHash,
+        addresses: [],
+        wishlist: [],
+      },
+    },
+    { upsert: true }
+  );
 
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
-
-  await User.create({
-    email: adminEmail,
-    name: 'Mulu ReStore Admin',
-    role: 'admin',
-    passwordHash,
-    addresses: [],
-    wishlist: [],
-  });
-
-  console.log('[seed] Admin user created successfully.');
+  console.log('[seed] Admin user upserted successfully.');
 }
 
 async function ensureDefaultCategories() {
@@ -77,11 +76,9 @@ async function main() {
 
     // Final summary
     const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@mulu-restore.local';
-    const adminPassword =
-      process.env.SEED_ADMIN_PASSWORD || 'changeme-admin-password';
     console.log('\n--- Seed summary ---');
     console.log('Admin email:', adminEmail);
-    console.log('Admin password:', adminPassword);
+    console.log('Admin password:', ADMIN_PASSWORD);
     console.log('Categories: Chairs, Tables, Sofas, Storage');
     console.log('---\n');
   } catch (error) {
