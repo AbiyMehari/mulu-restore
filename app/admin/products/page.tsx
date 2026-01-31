@@ -73,6 +73,9 @@ export default async function AdminProductsPage() {
                 <td style={{ padding: '0.75rem' }}>{item.category?.name ?? '—'}</td>
                 <td style={{ padding: '0.75rem' }}>{item.isActive ? 'Active' : 'Inactive'}</td>
                 <td style={{ padding: '0.75rem' }}>
+                  <Link href={`/admin/products/${item._id}/edit`} style={{ marginRight: '0.5rem' }}>
+                    Edit
+                  </Link>
                   <DeleteButton id={item._id} />
                 </td>
               </tr>
