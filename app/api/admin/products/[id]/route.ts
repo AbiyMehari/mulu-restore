@@ -166,7 +166,7 @@ export async function DELETE(_request: NextRequest, context: { params: { id: str
 
     const product = await Product.findByIdAndUpdate(
       id,
-      { isDeleted: true, isActive: false },
+      { isDeleted: true },
       { new: true }
     );
 
@@ -174,7 +174,7 @@ export async function DELETE(_request: NextRequest, context: { params: { id: str
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting product:', error);
     return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 });
