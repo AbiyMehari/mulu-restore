@@ -11,6 +11,7 @@ type Category = {
 export default function AdminCategoriesPage() {
   const [items, setItems] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -18,18 +19,19 @@ export default function AdminCategoriesPage() {
 
   const loadCategories = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const res = await fetch('/api/admin/categories', { cache: 'no-store' });
+      const res = await fetch('/api/categories', { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage({ type: 'error', text: data.error || 'Failed to load categories' });
+        setLoadError(data.error || 'Failed to load categories');
         setItems([]);
         return;
       }
       setItems(Array.isArray(data.items) ? data.items : []);
     } catch (err) {
       console.error('Failed to load categories:', err);
-      setMessage({ type: 'error', text: 'Failed to load categories' });
+      setLoadError('Failed to load categories');
       setItems([]);
     } finally {
       setLoading(false);
@@ -124,30 +126,33 @@ export default function AdminCategoriesPage() {
       {loading ? (
         <p>Loading…</p>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Name</th>
-              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Slug</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
+        <div>
+          {loadError && <p style={{ color: '#b91c1c' }}>{loadError}</p>}
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
               <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <td style={{ padding: '0.75rem' }} colSpan={2}>
-                  No categories yet.
-                </td>
+                <th style={{ textAlign: 'left', padding: '0.75rem' }}>Name</th>
+                <th style={{ textAlign: 'left', padding: '0.75rem' }}>Slug</th>
               </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item._id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '0.75rem' }}>{item.name}</td>
-                  <td style={{ padding: '0.75rem' }}>{item.slug}</td>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '0.75rem' }} colSpan={2}>
+                    No categories yet.
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                items.map((item) => (
+                  <tr key={item._id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <td style={{ padding: '0.75rem' }}>{item.name}</td>
+                    <td style={{ padding: '0.75rem' }}>{item.slug}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
