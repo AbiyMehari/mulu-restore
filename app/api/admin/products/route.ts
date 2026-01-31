@@ -27,18 +27,40 @@ async function ensureAdmin() {
  * GET /api/admin/products
  * List all products (admin)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const authResponse = await ensureAdmin();
   if (authResponse) return authResponse;
 
   try {
     await connectDB();
+
+    const searchParams = request.nextUrl.searchParams;
+    const q = (searchParams.get('q') ?? '').trim();
+    const pageRaw = searchParams.get('page');
+    const limitRaw = searchParams.get('limit');
+
+    const pageParsed = pageRaw ? parseInt(pageRaw, 10) : NaN;
+    const limitParsed = limitRaw ? parseInt(limitRaw, 10) : NaN;
+
+    const page = Number.isFinite(pageParsed) ? Math.max(1, pageParsed) : 1;
+    const limit = Number.isFinite(limitParsed) ? Math.min(200, Math.max(1, limitParsed)) : 50;
+    const skip = (page - 1) * limit;
+
+    const filter: Record<string, unknown> = { isDeleted: false };
+    if (q) {
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
+      filter.$or = [{ title: regex }, { slug: regex }];
+    }
+
     const [items, total] = await Promise.all([
-      Product.find({})
+      Product.find(filter)
         .populate('category', 'name slug')
         .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
         .lean(),
-      Product.countDocuments({}),
+      Product.countDocuments(filter),
     ]);
     return NextResponse.json({ items, total });
   } catch (error) {
