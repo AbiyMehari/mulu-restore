@@ -34,7 +34,14 @@ export default function NewProductPage() {
           throw new Error('Failed to fetch categories');
         }
         const data = await res.json();
-        setCategories(data.items ?? []);
+        const items: Category[] = data.items ?? [];
+        setCategories(
+          items.filter((cat) => {
+            const name = (cat.name ?? '').trim().toLowerCase();
+            const slug = (cat.slug ?? '').trim().toLowerCase();
+            return name !== 'storage' && slug !== 'storage';
+          })
+        );
       } catch (err) {
         console.error('Failed to load categories:', err);
         setCategories([]);
@@ -56,13 +63,22 @@ export default function NewProductPage() {
       .filter(Boolean)
       .map((url) => ({ url }));
 
+    // UI enters EUR, API expects integer cents
+    const euroAmount = Number(price || '0');
+    const priceInCents = Number.isFinite(euroAmount) ? Math.max(0, Math.round(euroAmount * 100)) : 0;
+
+    // `createProductSchema` expects condition: 'vintage' | 'restored' | 'used'.
+    // Keep the UI options the same, but map them to the API enum.
+    const conditionForApi: 'vintage' | 'restored' | 'used' =
+      condition === 'new' ? 'restored' : condition === 'excellent' ? 'restored' : condition === 'good' ? 'used' : 'vintage';
+
     const body = {
       title,
       slug,
-      price: parseInt(price || '0', 10),
+      price: priceInCents,
       stock: parseInt(stock || '0', 10),
-      categoryId: categoryId || undefined,
-      condition,
+      categoryId,
+      condition: conditionForApi,
       descriptionShort: shortDescription,
       description: fullDescription,
       images,
@@ -123,11 +139,11 @@ export default function NewProductPage() {
           />
         </div>
         <div style={formStyle}>
-          <label style={labelStyle}>Price (cents)</label>
+          <label style={labelStyle}>Price (EUR)</label>
           <input
             type="number"
             min="0"
-            step="1"
+            step="0.01"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             required

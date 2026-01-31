@@ -7,6 +7,7 @@ export default async function AdminProductsPage() {
   const host = headersList.get('host') || 'localhost:3000';
   const protocol = headersList.get('x-forwarded-proto') || 'http';
   const base = `${protocol}://${host}`;
+  const eur = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' });
 
   const res = await fetch(`${base}/api/admin/products`, {
     cache: 'no-store',
@@ -46,7 +47,7 @@ export default async function AdminProductsPage() {
         <thead>
           <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
             <th style={{ textAlign: 'left', padding: '0.75rem' }}>Title</th>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Price</th>
+            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Price (EUR)</th>
             <th style={{ textAlign: 'left', padding: '0.75rem' }}>Stock</th>
             <th style={{ textAlign: 'left', padding: '0.75rem' }}>Category</th>
             <th style={{ textAlign: 'left', padding: '0.75rem' }}>Status</th>
@@ -64,7 +65,9 @@ export default async function AdminProductsPage() {
             items.map((item: { _id: string; title: string; price: number; stockQuantity: number; category?: { name: string }; isActive: boolean }) => (
               <tr key={item._id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                 <td style={{ padding: '0.75rem' }}>{item.title}</td>
-                <td style={{ padding: '0.75rem' }}>{item.price != null ? (item.price / 100).toFixed(2) : '—'}</td>
+                <td style={{ padding: '0.75rem' }}>
+                  {item.price != null ? eur.format(item.price / 100) : '—'}
+                </td>
                 <td style={{ padding: '0.75rem' }}>{item.stockQuantity ?? '—'}</td>
                 <td style={{ padding: '0.75rem' }}>{item.category?.name ?? '—'}</td>
                 <td style={{ padding: '0.75rem' }}>{item.isActive ? 'Active' : 'Inactive'}</td>
