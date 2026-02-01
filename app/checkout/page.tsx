@@ -33,6 +33,13 @@ export default function CheckoutPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    street?: string;
+    city?: string;
+    postalCode?: string;
+  }>({});
 
   const orderPayload = useMemo(() => {
     return {
@@ -52,9 +59,37 @@ export default function CheckoutPage() {
     };
   }, [email, fullName, street, city, postalCode, country, phone, items]);
 
+  const validate = () => {
+    const errors: {
+      name?: string;
+      email?: string;
+      street?: string;
+      city?: string;
+      postalCode?: string;
+    } = {};
+
+    if (!fullName.trim()) errors.name = 'Required';
+    if (!email.trim()) errors.email = 'Required';
+    if (!street.trim()) errors.street = 'Required';
+    if (!city.trim()) errors.city = 'Required';
+    if (!postalCode.trim()) errors.postalCode = 'Required';
+
+    return errors;
+  };
+
+  const currentErrors = useMemo(() => validate(), [fullName, email, street, city, postalCode]);
+  const canPay = items.length > 0 && Object.keys(currentErrors).length === 0 && !submitting;
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
+
+    const errors = validate();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Please fill all required fields.' });
+      return;
+    }
 
     if (items.length === 0) {
       setMessage({ type: 'error', text: 'Your cart is empty.' });
@@ -130,11 +165,13 @@ export default function CheckoutPage() {
           <div style={{ marginBottom: '0.75rem' }}>
             <label style={{ display: 'block', marginBottom: '0.25rem' }}>Full name</label>
             <input value={fullName} onChange={(e) => setFullName(e.target.value)} required style={{ width: '100%', padding: '0.5rem' }} />
+            {fieldErrors.name ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.name}</div> : null}
           </div>
 
           <div style={{ marginBottom: '0.75rem' }}>
             <label style={{ display: 'block', marginBottom: '0.25rem' }}>Email</label>
             <input value={email} onChange={(e) => setEmail(e.target.value)} required type="email" style={{ width: '100%', padding: '0.5rem' }} />
+            {fieldErrors.email ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.email}</div> : null}
           </div>
 
           <div style={{ marginBottom: '0.75rem' }}>
@@ -145,16 +182,19 @@ export default function CheckoutPage() {
           <div style={{ marginBottom: '0.75rem' }}>
             <label style={{ display: 'block', marginBottom: '0.25rem' }}>Street</label>
             <input value={street} onChange={(e) => setStreet(e.target.value)} required style={{ width: '100%', padding: '0.5rem' }} />
+            {fieldErrors.street ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.street}</div> : null}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '0.25rem' }}>City</label>
               <input value={city} onChange={(e) => setCity(e.target.value)} required style={{ width: '100%', padding: '0.5rem' }} />
+              {fieldErrors.city ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.city}</div> : null}
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '0.25rem' }}>Postal code</label>
               <input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} required style={{ width: '100%', padding: '0.5rem' }} />
+              {fieldErrors.postalCode ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.postalCode}</div> : null}
             </div>
           </div>
 
@@ -169,7 +209,7 @@ export default function CheckoutPage() {
             </div>
           ) : null}
 
-          <button type="submit" disabled={submitting} style={{ padding: '0.5rem 0.75rem' }}>
+          <button type="submit" disabled={!canPay} style={{ padding: '0.5rem 0.75rem' }}>
             {submitting ? 'Paying…' : 'Pay'}
           </button>
         </form>
