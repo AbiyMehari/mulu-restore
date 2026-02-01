@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const [products, total] = await Promise.all([
       Product.find(filter)
         .populate('category', 'name slug')
-        .select('_id title slug price images category')
+        .select('_id title slug price stockQuantity images category')
         .sort(sort)
         .skip(skip)
         .limit(limit)
@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
       title: p.title,
       slug: p.slug,
       price: p.price,
+      stockQuantity: typeof p.stockQuantity === 'number' ? p.stockQuantity : 0,
       images: normalizeImages(p.images),
       category:
         p.category && typeof p.category === 'object'

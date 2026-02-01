@@ -8,6 +8,8 @@ import { clearCart, readCart, removeFromCart, setCartQuantity, type CartItem, wr
 export default function CartPage() {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
+  const [stockById, setStockById] = useState<Record<string, number | null>>({});
+  const [stockNote, setStockNote] = useState<string | null>(null);
   const eur = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' });
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -47,6 +49,94 @@ export default function CartPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStock() {
+      setStockNote(null);
+      const ids = Array.from(new Set(items.map((it) => it.productId))).filter(Boolean);
+      if (ids.length === 0) {
+        setStockById({});
+        return;
+      }
+
+      // Try to resolve stock using the public products list (ObjectId-based cart ids),
+      // and fall back to slug-detail for non-ObjectId ids.
+      const isObjectId = (s: string) => /^[a-fA-F0-9]{24}$/.test(s);
+      const objectIds = ids.filter(isObjectId);
+      const slugIds = ids.filter((x) => !isObjectId(x));
+
+      const next: Record<string, number | null> = {};
+
+      // Page through products until we find all objectIds (cart is small).
+      if (objectIds.length > 0) {
+        const remaining = new Set(objectIds);
+        let page = 1;
+        const limit = 100;
+        while (remaining.size > 0 && page <= 50) {
+          const res = await fetch(`/api/products?page=${page}&limit=${limit}`, { cache: 'no-store' });
+          if (!res.ok) break;
+          const data = (await res.json().catch(() => ({}))) as { items?: any[] };
+          const list = Array.isArray(data.items) ? data.items : [];
+          if (list.length === 0) break;
+          for (const p of list) {
+            const id = typeof p?._id === 'string' ? p._id : '';
+            if (!id || !remaining.has(id)) continue;
+            next[id] = typeof p.stockQuantity === 'number' ? p.stockQuantity : null;
+            remaining.delete(id);
+          }
+          page += 1;
+        }
+        for (const id of remaining) next[id] = null;
+      }
+
+      // Slug-based fallback
+      for (const slug of slugIds) {
+        try {
+          const res = await fetch(`/api/products/${encodeURIComponent(slug)}`, { cache: 'no-store' });
+          if (!res.ok) {
+            next[slug] = null;
+            continue;
+          }
+          const data = (await res.json().catch(() => ({}))) as any;
+          const stock = typeof data?.item?.stockQuantity === 'number' ? data.item.stockQuantity : null;
+          next[slug] = stock;
+        } catch {
+          next[slug] = null;
+        }
+      }
+
+      if (cancelled) return;
+      setStockById(next);
+
+      // Clamp quantities to stock, and remove items with stock 0
+      let changed = false;
+      for (const it of readCart()) {
+        const stock = next[it.productId];
+        if (typeof stock === 'number') {
+          if (stock <= 0) {
+            removeFromCart(it.productId);
+            changed = true;
+            continue;
+          }
+          if (it.quantity > stock) {
+            setCartQuantity(it.productId, stock);
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        setItems(readCart());
+        setStockNote('Some cart quantities were adjusted to match current stock.');
+      }
+    }
+
+    loadStock();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((x) => `${x.productId}:${x.quantity}`).join('|')]);
+
   const onDec = (productId: string, currentQty: number) => {
     const nextQty = Math.max(1, (currentQty || 1) - 1);
     const updated = setCartQuantity(productId, nextQty);
@@ -54,7 +144,9 @@ export default function CartPage() {
   };
 
   const onInc = (productId: string, currentQty: number) => {
-    const nextQty = Math.max(1, (currentQty || 1) + 1);
+    const stock = stockById[productId];
+    const maxQty = typeof stock === 'number' ? stock : Infinity;
+    const nextQty = Math.min(maxQty, Math.max(1, (currentQty || 1) + 1));
     const updated = setCartQuantity(productId, nextQty);
     setItems(updated);
   };
@@ -84,6 +176,7 @@ export default function CartPage() {
       <h1>Cart</h1>
 
       {notice ? <div style={{ marginTop: '0.5rem', color: '#374151' }}>{notice}</div> : null}
+      {stockNote ? <div style={{ marginTop: '0.5rem', color: '#b91c1c' }}>{stockNote}</div> : null}
 
       {items.length === 0 ? (
         <div style={{ marginTop: '0.75rem' }}>
@@ -95,6 +188,9 @@ export default function CartPage() {
           <div style={{ marginTop: '1rem' }}>
             {items.map((it) => {
               const lineTotal = (it.price || 0) * (it.quantity || 0);
+              const stock = stockById[it.productId];
+              const outOfStock = typeof stock === 'number' && stock <= 0;
+              const atMax = typeof stock === 'number' && it.quantity >= stock;
               return (
                 <div
                   key={it.productId}
@@ -113,6 +209,13 @@ export default function CartPage() {
                     <div>
                       <div style={{ fontWeight: 600 }}>{it.title}</div>
                       <div style={{ color: '#374151', marginTop: '0.25rem' }}>{eur.format((it.price ?? 0) / 100)} each</div>
+                      {typeof stock === 'number' ? (
+                        <div style={{ marginTop: '0.25rem', color: outOfStock ? '#b91c1c' : '#374151' }}>
+                          {outOfStock ? 'No longer available' : `In stock: ${stock}`}
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '0.25rem', color: '#6b7280' }}>Checking stock…</div>
+                      )}
                     </div>
                   </div>
 
@@ -127,7 +230,13 @@ export default function CartPage() {
                         inputMode="numeric"
                         style={{ width: 64, padding: '0.25rem 0.5rem' }}
                       />
-                      <button type="button" onClick={() => onInc(it.productId, it.quantity)} style={{ padding: '0.25rem 0.5rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => onInc(it.productId, it.quantity)}
+                        disabled={atMax || outOfStock}
+                        style={{ padding: '0.25rem 0.5rem', opacity: atMax || outOfStock ? 0.6 : 1 }}
+                        title={atMax ? 'Max stock reached' : undefined}
+                      >
                         +
                       </button>
                     </div>

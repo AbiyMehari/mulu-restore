@@ -6,6 +6,7 @@ type ProductDetail = {
   title: string;
   price: number;
   images: string[];
+  stockQuantity?: number;
   description: string;
   condition?: string;
   category?: { name: string; slug: string } | null;
@@ -64,6 +65,7 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
 
   const images = Array.isArray(item.images) ? item.images : [];
   const firstImage = images[0];
+  const stock = typeof item.stockQuantity === 'number' ? item.stockQuantity : 0;
 
   // Get a stable productId without changing the public detail API shape
   const listRes = await fetch(`${base}/api/products`, { cache: 'no-store' });
@@ -80,10 +82,14 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
 
       <div style={{ marginTop: '1rem' }}>
         <div style={{ fontSize: '1.125rem', fontWeight: 600 }}>{eur.format((item.price ?? 0) / 100)}</div>
+        <div style={{ marginTop: '0.25rem', color: stock <= 0 ? '#b91c1c' : '#374151' }}>
+          {stock <= 0 ? 'Out of stock' : `In stock: ${stock}`}
+        </div>
         <AddToCartButton
           productId={productId}
           title={item.title}
           price={item.price ?? 0}
+          stockQuantity={stock}
           slug={params.slug}
           image={firstImage}
         />

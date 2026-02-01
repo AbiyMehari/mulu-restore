@@ -9,6 +9,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { items, totalItems, totalAmount, clearCart } = useCart();
   const eur = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' });
+  const [stockById, setStockById] = useState<Record<string, number | null>>({});
 
   // Explicitly read localStorage on mount to avoid showing "empty cart"
   // during the initial cart hydration window.
@@ -22,6 +23,67 @@ export default function CheckoutPage() {
       setStoredCount(0);
     }
   }, []);
+
+  // Load stock for current cart items (client-side validation)
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStock() {
+      const ids = Array.from(new Set(items.map((it) => it.productId))).filter(Boolean);
+      if (ids.length === 0) {
+        setStockById({});
+        return;
+      }
+
+      const isObjectId = (s: string) => /^[a-fA-F0-9]{24}$/.test(s);
+      const objectIds = ids.filter(isObjectId);
+      const slugIds = ids.filter((x) => !isObjectId(x));
+
+      const next: Record<string, number | null> = {};
+
+      if (objectIds.length > 0) {
+        const remaining = new Set(objectIds);
+        let page = 1;
+        const limit = 100;
+        while (remaining.size > 0 && page <= 50) {
+          const res = await fetch(`/api/products?page=${page}&limit=${limit}`, { cache: 'no-store' });
+          if (!res.ok) break;
+          const data = (await res.json().catch(() => ({}))) as { items?: any[] };
+          const list = Array.isArray(data.items) ? data.items : [];
+          if (list.length === 0) break;
+          for (const p of list) {
+            const id = typeof p?._id === 'string' ? p._id : '';
+            if (!id || !remaining.has(id)) continue;
+            next[id] = typeof p.stockQuantity === 'number' ? p.stockQuantity : null;
+            remaining.delete(id);
+          }
+          page += 1;
+        }
+        for (const id of remaining) next[id] = null;
+      }
+
+      for (const slug of slugIds) {
+        try {
+          const res = await fetch(`/api/products/${encodeURIComponent(slug)}`, { cache: 'no-store' });
+          if (!res.ok) {
+            next[slug] = null;
+            continue;
+          }
+          const data = (await res.json().catch(() => ({}))) as any;
+          next[slug] = typeof data?.item?.stockQuantity === 'number' ? data.item.stockQuantity : null;
+        } catch {
+          next[slug] = null;
+        }
+      }
+
+      if (cancelled) return;
+      setStockById(next);
+    }
+
+    loadStock();
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -80,7 +142,18 @@ export default function CheckoutPage() {
   };
 
   const currentErrors = useMemo(() => validate(), [fullName, email, street, city, postalCode]);
-  const canPay = items.length > 0 && Object.keys(currentErrors).length === 0 && !submitting;
+  const stockProblems = useMemo(() => {
+    const problems: string[] = [];
+    for (const it of items) {
+      const stock = stockById[it.productId];
+      if (typeof stock === 'number' && stock >= 0 && it.quantity > stock) {
+        problems.push(it.productId);
+      }
+    }
+    return problems;
+  }, [items, stockById]);
+
+  const canPay = items.length > 0 && Object.keys(currentErrors).length === 0 && !submitting && stockProblems.length === 0;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +169,21 @@ export default function CheckoutPage() {
     if (items.length === 0) {
       setMessage({ type: 'error', text: 'Your cart is empty.' });
       return;
+    }
+
+    // Re-validate against latest stock before placing the order.
+    for (const it of items) {
+      const stock = stockById[it.productId];
+      if (typeof stock === 'number') {
+        if (stock <= 0) {
+          setMessage({ type: 'error', text: `Insufficient stock for ${it.title}` });
+          return;
+        }
+        if (it.quantity > stock) {
+          setMessage({ type: 'error', text: `Insufficient stock for ${it.title}` });
+          return;
+        }
+      }
     }
 
     setSubmitting(true);
@@ -215,6 +303,12 @@ export default function CheckoutPage() {
             </div>
           ) : null}
 
+          {stockProblems.length > 0 ? (
+            <div style={{ marginBottom: '0.75rem', color: '#b91c1c' }}>
+              Some items exceed available stock. Please adjust your cart.
+            </div>
+          ) : null}
+
           <button
             type="submit"
             disabled={!canPay}
@@ -236,6 +330,11 @@ export default function CheckoutPage() {
                   <div style={{ color: '#374151' }}>
                     Qty {it.quantity} × {eur.format((it.price ?? 0) / 100)}
                   </div>
+                  {typeof stockById[it.productId] === 'number' && it.quantity > (stockById[it.productId] as number) ? (
+                    <div style={{ color: '#b91c1c', marginTop: '0.25rem' }}>
+                      Only {stockById[it.productId]} in stock
+                    </div>
+                  ) : null}
                 </div>
                 <div style={{ fontWeight: 600 }}>{eur.format(((it.price ?? 0) * (it.quantity ?? 0)) / 100)}</div>
               </div>

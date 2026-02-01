@@ -9,6 +9,7 @@ type Product = {
   title: string;
   slug: string;
   price: number;
+  stockQuantity?: number;
   images?: unknown;
   category?: { name?: string; slug?: string } | null;
 };
@@ -79,6 +80,8 @@ export default function ProductsPage() {
       >
         {items.map((p) => {
           const image = getFirstImage(p.images);
+          const stock = typeof p.stockQuantity === 'number' ? p.stockQuantity : null;
+          const outOfStock = stock !== null && stock <= 0;
           return (
             <div
               key={p._id}
@@ -107,7 +110,13 @@ export default function ProductsPage() {
               </Link>
 
               <div style={{ padding: '0 0.75rem 0.75rem' }}>
-                <button type="button" onClick={() => addToCart(p)} style={{ padding: '0.5rem 0.75rem' }}>
+                {outOfStock ? <div style={{ marginBottom: '0.5rem', color: '#b91c1c' }}>Out of stock</div> : null}
+                <button
+                  type="button"
+                  onClick={() => addToCart(p)}
+                  disabled={outOfStock}
+                  style={{ padding: '0.5rem 0.75rem', opacity: outOfStock ? 0.6 : 1 }}
+                >
                   Add to cart
                 </button>
               </div>
