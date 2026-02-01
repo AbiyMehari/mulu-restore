@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import connectDB from '@/lib/db';
 import Order from '@/models/Order';
+import Product from '@/models/Product';
 
 type CreateOrderBody = {
   email?: unknown;
@@ -28,6 +29,7 @@ function asNumber(value: unknown) {
  * Guest checkout order creation (no auth)
  */
 export async function POST(request: NextRequest) {
+  const decrementedByProductId: Record<string, number> = {};
   try {
     await connectDB();
 
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     for (const raw of body.items) {
       if (!raw || typeof raw !== 'object') {
-        return NextResponse.json({ error: 'Validation error' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid item: expected object' }, { status: 400 });
       }
       const r = raw as any;
 
@@ -70,16 +72,16 @@ export async function POST(request: NextRequest) {
       const quantity = Number.isFinite(quantityRaw) ? Math.max(0, Math.floor(quantityRaw)) : NaN;
 
       if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
-        return NextResponse.json({ error: 'Validation error' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid item: productId is required' }, { status: 400 });
+      }
+      if (!Number.isFinite(quantity) || quantity < 1) {
+        return NextResponse.json({ error: 'Invalid item: quantity must be >= 1' }, { status: 400 });
       }
       if (!title) {
-        return NextResponse.json({ error: 'Validation error' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid item: title is required' }, { status: 400 });
       }
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-        return NextResponse.json({ error: 'Validation error' }, { status: 400 });
-      }
-      if (!Number.isFinite(quantity) || quantity <= 0) {
-        return NextResponse.json({ error: 'Validation error' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid item: unitPrice is required' }, { status: 400 });
       }
 
       items.push({
@@ -90,6 +92,33 @@ export async function POST(request: NextRequest) {
       });
 
       totalAmount += unitPrice * quantity;
+    }
+
+    // Prevent overselling by atomically decrementing stock for each item.
+    for (const it of items) {
+      const productId = (it as any).product?.toString?.() ?? '';
+      const quantity = (it as any).quantity as number;
+
+      const updated = await Product.findOneAndUpdate(
+        {
+          _id: productId,
+          isDeleted: false,
+          $or: [{ isActive: true }, { isActive: { $exists: false } }],
+          stockQuantity: { $gte: quantity },
+        },
+        { $inc: { stockQuantity: -quantity } },
+        { new: true }
+      );
+
+      if (!updated) {
+        const rollback = Object.entries(decrementedByProductId).map(([id, qty]) =>
+          Product.updateOne({ _id: id }, { $inc: { stockQuantity: qty } })
+        );
+        await Promise.allSettled(rollback);
+        return NextResponse.json({ error: 'Out of stock', productId }, { status: 409 });
+      }
+
+      decrementedByProductId[productId] = (decrementedByProductId[productId] ?? 0) + quantity;
     }
 
     const order = await Order.create({
@@ -111,6 +140,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ item: { _id: order._id.toString() } }, { status: 201 });
   } catch (error) {
+    // Best-effort rollback if we decremented stock but failed later (e.g., Order.create error).
+    try {
+      const rollback = Object.entries(decrementedByProductId).map(([id, qty]) =>
+        Product.updateOne({ _id: id }, { $inc: { stockQuantity: qty } })
+      );
+      if (rollback.length > 0) await Promise.allSettled(rollback);
+    } catch (rollbackError) {
+      console.error('Failed to rollback stock decrement:', rollbackError);
+    }
     console.error('Error creating order:', error);
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
   }
