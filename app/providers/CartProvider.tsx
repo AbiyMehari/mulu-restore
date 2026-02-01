@@ -60,27 +60,34 @@ function normalizeStoredItems(raw: unknown): CartItem[] {
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      setItems(normalizeStoredItems(parsed));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setItems(normalizeStoredItems(parsed));
+      } else {
+        setItems([]);
+      }
     } catch {
       setItems([]);
+    } finally {
+      setHasHydrated(true);
     }
   }, []);
 
-  // Persist to localStorage on change
+  // Persist to localStorage on change (after initial hydration only)
   useEffect(() => {
+    if (!hasHydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     } catch {
       // ignore write errors (e.g. storage disabled/quota)
     }
-  }, [items]);
+  }, [items, hasHydrated]);
 
   const addItem = useCallback((item: AddCartItemInput, quantity = 1) => {
     const qty = coercePositiveInt(quantity, 1);
