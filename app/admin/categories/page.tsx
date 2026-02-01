@@ -22,16 +22,30 @@ export default function AdminCategoriesPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch('/api/admin/categories', { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
+      const res = await fetch('/api/admin/categories', {
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      const contentType = res.headers.get('content-type') || '';
+      const data =
+        contentType.includes('application/json') ? await res.json().catch(() => ({})) : await res.text().catch(() => '');
 
       if (!res.ok) {
         setItems([]);
-        setLoadError(data.error || `Failed to load categories (${res.status})`);
+        const errText =
+          typeof (data as any)?.error === 'string'
+            ? (data as any).error
+            : typeof data === 'string'
+              ? data
+              : '';
+        // Avoid dumping full HTML into the UI; just show a short hint.
+        const short = errText.replace(/\s+/g, ' ').trim().slice(0, 200);
+        setLoadError(short || `Failed to load categories (${res.status})`);
         return;
       }
 
-      setItems(Array.isArray(data.items) ? data.items : []);
+      setItems(Array.isArray((data as any)?.items) ? (data as any).items : []);
     } catch (err) {
       console.error('Failed to load categories:', err);
       setItems([]);
@@ -52,11 +66,24 @@ export default function AdminCategoriesPage() {
     if (!ok) return;
 
     try {
-      const res = await fetch(`/api/admin/categories/${id}`, { method: 'DELETE' });
-      const data = await res.json().catch(() => ({}));
+      const res = await fetch(`/api/admin/categories/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      const contentType = res.headers.get('content-type') || '';
+      const data =
+        contentType.includes('application/json') ? await res.json().catch(() => ({})) : await res.text().catch(() => '');
 
       if (!res.ok) {
-        setMessage({ type: 'error', text: data.error || `Failed (${res.status})` });
+        const errText =
+          typeof (data as any)?.error === 'string'
+            ? (data as any).error
+            : typeof data === 'string'
+              ? data
+              : '';
+        const short = errText.replace(/\s+/g, ' ').trim().slice(0, 200);
+        setMessage({ type: 'error', text: short || `Failed (${res.status})` });
         return;
       }
 
@@ -76,13 +103,23 @@ export default function AdminCategoriesPage() {
     try {
       const res = await fetch('/api/admin/categories', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), slug: slug.trim() }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const contentType = res.headers.get('content-type') || '';
+      const data =
+        contentType.includes('application/json') ? await res.json().catch(() => ({})) : await res.text().catch(() => '');
       if (!res.ok) {
-        setMessage({ type: 'error', text: data.error || `Failed (${res.status})` });
+        const errText =
+          typeof (data as any)?.error === 'string'
+            ? (data as any).error
+            : typeof data === 'string'
+              ? data
+              : '';
+        const short = errText.replace(/\s+/g, ' ').trim().slice(0, 200);
+        setMessage({ type: 'error', text: short || `Failed (${res.status})` });
         setSubmitting(false);
         return;
       }
