@@ -1,26 +1,56 @@
 'use client';
 
 import { useState } from 'react';
-import { useCart } from '@/app/providers/CartProvider';
 
 export default function AddToCartButton({
   productId,
   title,
   price,
-  slug,
-  image,
 }: {
   productId: string;
   title: string;
   price: number;
-  slug: string;
-  image?: string;
 }) {
-  const { addItem } = useCart();
   const [message, setMessage] = useState<string | null>(null);
 
   const onAdd = () => {
-    addItem({ productId, title, price, slug, image }, 1);
+    let cart: any[] = [];
+    try {
+      const raw = window.localStorage.getItem('mulu_cart');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        cart = Array.isArray(parsed) ? parsed : [];
+      }
+    } catch {
+      cart = [];
+    }
+
+    const idx = cart.findIndex((x) => x && typeof x === 'object' && (x as any).productId === productId);
+    if (idx === -1) {
+      const updated = [...cart, { productId, title, price, quantity: 1 }];
+      try {
+        window.localStorage.setItem('mulu_cart', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      setMessage('Added to cart.');
+      window.setTimeout(() => setMessage(null), 1500);
+      return;
+    }
+
+    const current = cart[idx] as any;
+    const currentQty = typeof current.quantity === 'number' ? current.quantity : 0;
+    const nextQty = Math.max(0, Math.floor(currentQty)) + 1;
+
+    const updated = cart.slice();
+    updated[idx] = { productId, title, price, quantity: nextQty };
+
+    try {
+      window.localStorage.setItem('mulu_cart', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+
     setMessage('Added to cart.');
     window.setTimeout(() => setMessage(null), 1500);
   };
