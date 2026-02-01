@@ -137,9 +137,13 @@ export async function POST(request: NextRequest) {
 
     for (const it of requestedItems) {
       const p = byId.get(it.productId);
-      const titleForMsg = p?.title || it.title || 'item';
-      const stockQty = typeof p?.stockQuantity === 'number' ? p.stockQuantity : -1;
-      if (!p || stockQty < it.quantity) {
+      if (!p) {
+        // Product missing, deleted, or inactive (non-orderable)
+        return NextResponse.json({ error: 'Invalid product', productId: it.productId }, { status: 400 });
+      }
+      const titleForMsg = p.title || it.title || 'item';
+      const stockQty = typeof p.stockQuantity === 'number' ? p.stockQuantity : -1;
+      if (stockQty < it.quantity) {
         return NextResponse.json({ error: `Insufficient stock for ${titleForMsg}` }, { status: 409 });
       }
     }
