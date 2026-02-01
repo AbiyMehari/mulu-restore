@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import OrderStatusForm from './OrderStatusForm';
+import { cookies, headers } from 'next/headers';
 
 type OrderItem = {
   _id: string;
@@ -18,9 +17,13 @@ type OrderItem = {
 
 export default async function AdminOrderDetailPage({ params }: { params: { id: string } }) {
   const cookieStore = await cookies();
+  const headersList = await headers();
+  const host = headersList.get('host') || 'localhost:3000';
+  const protocol = headersList.get('x-forwarded-proto') || 'http';
+  const base = `${protocol}://${host}`;
   const eur = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' });
 
-  const res = await fetch(`http://localhost:3000/api/admin/orders/${params.id}`, {
+  const res = await fetch(`${base}/api/admin/orders/${params.id}`, {
     cache: 'no-store',
     headers: { Cookie: cookieStore.toString() },
   });
@@ -70,11 +73,10 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
           <strong>Order ID:</strong> {item._id}
         </div>
         <div style={{ marginBottom: '0.5rem' }}>
-          <strong>User email:</strong> {item.user?.email ?? '—'}
+          <strong>Customer email:</strong> {item.user?.email ?? '—'}
         </div>
         <div style={{ marginBottom: '0.5rem' }}>
           <strong>Status:</strong> {item.status ?? '—'}
-          <OrderStatusForm id={item._id} initialStatus={item.status} />
         </div>
         <div style={{ marginBottom: '0.5rem' }}>
           <strong>Total:</strong>{' '}
