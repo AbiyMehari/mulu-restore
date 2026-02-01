@@ -2,13 +2,26 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/app/providers/CartProvider';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, totalItems, totalAmount, clearCart } = useCart();
   const eur = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' });
+
+  // Explicitly read localStorage on mount to avoid showing "empty cart"
+  // during the initial cart hydration window.
+  const [storedCount, setStoredCount] = useState<number | null>(null);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('mulu_cart');
+      const parsed = raw ? JSON.parse(raw) : [];
+      setStoredCount(Array.isArray(parsed) ? parsed.length : 0);
+    } catch {
+      setStoredCount(0);
+    }
+  }, []);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -69,6 +82,11 @@ export default function CheckoutPage() {
       }
 
       clearCart();
+      try {
+        window.localStorage.removeItem('mulu_cart');
+      } catch {
+        // ignore
+      }
       router.push(`/order/success?id=${orderId}`);
     } catch (err) {
       console.error('Checkout failed:', err);
@@ -78,7 +96,16 @@ export default function CheckoutPage() {
     }
   };
 
-  if (items.length === 0) {
+  if (items.length === 0 && storedCount === null) {
+    return (
+      <div>
+        <h1>Checkout</h1>
+        <p>Loading your cart…</p>
+      </div>
+    );
+  }
+
+  if (items.length === 0 && (storedCount ?? 0) === 0) {
     return (
       <div>
         <h1>Checkout</h1>
@@ -143,7 +170,7 @@ export default function CheckoutPage() {
           ) : null}
 
           <button type="submit" disabled={submitting} style={{ padding: '0.5rem 0.75rem' }}>
-            {submitting ? 'Placing order…' : 'Place order'}
+            {submitting ? 'Paying…' : 'Pay'}
           </button>
         </form>
 

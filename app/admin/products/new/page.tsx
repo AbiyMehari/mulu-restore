@@ -33,15 +33,8 @@ export default function NewProductPage() {
         if (!res.ok) {
           throw new Error('Failed to fetch categories');
         }
-        const data = await res.json();
-        const items: Category[] = data.items ?? [];
-        setCategories(
-          items.filter((cat) => {
-            const name = (cat.name ?? '').trim().toLowerCase();
-            const slug = (cat.slug ?? '').trim().toLowerCase();
-            return name !== 'storage' && slug !== 'storage';
-          })
-        );
+        const data = (await res.json()) as { items?: Category[] };
+        setCategories(data.items ?? []);
       } catch (err) {
         console.error('Failed to load categories:', err);
         setCategories([]);

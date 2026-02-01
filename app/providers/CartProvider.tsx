@@ -58,32 +58,39 @@ function normalizeStoredItems(raw: unknown): CartItem[] {
   return out;
 }
 
+function readStoredCart(): CartItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return normalizeStoredItems(parsed);
+  } catch {
+    return [];
+  }
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => readStoredCart());
   const [hasHydrated, setHasHydrated] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setItems(normalizeStoredItems(parsed));
-      } else {
-        setItems([]);
-      }
-    } catch {
-      setItems([]);
-    } finally {
-      setHasHydrated(true);
-    }
+    // If the user interacts before this runs, do NOT clobber their changes.
+    const stored = readStoredCart();
+    setItems((prev) => (prev.length > 0 ? prev : stored));
+    setHasHydrated(true);
   }, []);
 
   // Persist to localStorage on change (after initial hydration only)
   useEffect(() => {
     if (!hasHydrated) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      if (items.length === 0) {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      }
     } catch {
       // ignore write errors (e.g. storage disabled/quota)
     }
