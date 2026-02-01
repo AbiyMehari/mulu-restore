@@ -68,8 +68,10 @@ export default function CheckoutPage() {
       postalCode?: string;
     } = {};
 
-    if (!fullName.trim()) errors.name = 'Required';
-    if (!email.trim()) errors.email = 'Required';
+    if (!fullName.trim()) errors.name = 'Full name is required';
+    const emailTrimmed = email.trim();
+    const emailLooksValid = /^\S+@\S+\.\S+$/.test(emailTrimmed);
+    if (!emailTrimmed || !emailLooksValid) errors.email = 'Valid email required';
     if (!street.trim()) errors.street = 'Required';
     if (!city.trim()) errors.city = 'Required';
     if (!postalCode.trim()) errors.postalCode = 'Required';
@@ -106,13 +108,13 @@ export default function CheckoutPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setMessage({ type: 'error', text: data.error || `Failed (${res.status})` });
+        setMessage({ type: 'error', text: 'Order could not be placed. Please try again.' });
         return;
       }
 
       const orderId = data?.item?._id;
       if (!orderId) {
-        setMessage({ type: 'error', text: 'Failed to create order.' });
+        setMessage({ type: 'error', text: 'Order could not be placed. Please try again.' });
         return;
       }
 
@@ -125,7 +127,7 @@ export default function CheckoutPage() {
       router.push(`/order/success?id=${orderId}`);
     } catch (err) {
       console.error('Checkout failed:', err);
-      setMessage({ type: 'error', text: 'Request failed.' });
+      setMessage({ type: 'error', text: 'Order could not be placed. Please try again.' });
     } finally {
       setSubmitting(false);
     }
@@ -209,8 +211,13 @@ export default function CheckoutPage() {
             </div>
           ) : null}
 
-          <button type="submit" disabled={!canPay} style={{ padding: '0.5rem 0.75rem' }}>
-            {submitting ? 'Paying…' : 'Pay'}
+          <button
+            type="submit"
+            disabled={!canPay}
+            title={!canPay ? 'Please complete required fields' : undefined}
+            style={{ padding: '0.5rem 0.75rem' }}
+          >
+            {submitting ? 'Processing…' : 'Pay'}
           </button>
         </form>
 
