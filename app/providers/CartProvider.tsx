@@ -1,6 +1,13 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  addToCart as addToCartStorage,
+  clearCart as clearCartStorage,
+  readCart,
+  removeFromCart,
+  setCartQuantity as setCartQuantityStorage,
+} from '@/lib/cart';
 
 export type CartItem = {
   productId: string;
@@ -23,125 +30,52 @@ type CartContextValue = {
   totalAmount: () => number;
 };
 
-const STORAGE_KEY = 'mulu_cart';
-
 const CartContext = createContext<CartContextValue | null>(null);
 
-function coercePositiveInt(value: unknown, fallback = 1) {
-  const n = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(0, Math.floor(n));
-}
-
-function normalizeStoredItems(raw: unknown): CartItem[] {
-  if (!Array.isArray(raw)) return [];
-  const out: CartItem[] = [];
-
-  for (const entry of raw) {
-    if (!entry || typeof entry !== 'object') continue;
-    const e = entry as any;
-
-    const productId = typeof e.productId === 'string' ? e.productId : '';
-    const title = typeof e.title === 'string' ? e.title : '';
-    const price = typeof e.price === 'number' ? e.price : Number(e.price);
-    const quantity = coercePositiveInt(e.quantity, 0);
-    const image = typeof e.image === 'string' ? e.image : undefined;
-    const slug = typeof e.slug === 'string' ? e.slug : undefined;
-
-    if (!productId || !title) continue;
-    if (!Number.isFinite(price) || price < 0) continue;
-    if (quantity <= 0) continue;
-
-    out.push({ productId, title, price, quantity, image, slug });
-  }
-
-  return out;
-}
-
-function readStoredCart(): CartItem[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return normalizeStoredItems(parsed);
-  } catch {
-    return [];
-  }
-}
-
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>(() => readStoredCart());
-  const [hasHydrated, setHasHydrated] = useState(false);
+  const [items, setItems] = useState<CartItem[]>(() => readCart());
 
-  // Load from localStorage on mount
   useEffect(() => {
-    // If the user interacts before this runs, do NOT clobber their changes.
-    const stored = readStoredCart();
-    setItems((prev) => (prev.length > 0 ? prev : stored));
-    setHasHydrated(true);
+    // Ensure state reflects any already-stored cart.
+    setItems(readCart());
   }, []);
 
-  // Persist to localStorage on change (after initial hydration only)
   useEffect(() => {
-    if (!hasHydrated) return;
-    try {
-      if (items.length === 0) {
-        window.localStorage.removeItem(STORAGE_KEY);
-      } else {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-      }
-    } catch {
-      // ignore write errors (e.g. storage disabled/quota)
-    }
-  }, [items, hasHydrated]);
+    if (typeof window === 'undefined') return;
+
+    const onUpdate = () => setItems(readCart());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'mulu_cart') onUpdate();
+    };
+
+    window.addEventListener('mulu_cart_updated', onUpdate);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('mulu_cart_updated', onUpdate);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   const addItem = useCallback((item: AddCartItemInput, quantity = 1) => {
-    const qty = coercePositiveInt(quantity, 1);
-    if (!item?.productId || qty <= 0) return;
-
-    setItems((prev) => {
-      const idx = prev.findIndex((x) => x.productId === item.productId);
-      if (idx === -1) {
-        return [
-          ...prev,
-          {
-            productId: item.productId,
-            title: item.title,
-            price: item.price,
-            quantity: qty,
-            image: item.image,
-            slug: item.slug,
-          },
-        ];
-      }
-
-      const next = prev.slice();
-      next[idx] = {
-        ...next[idx],
-        title: item.title ?? next[idx].title,
-        price: typeof item.price === 'number' ? item.price : next[idx].price,
-        image: item.image ?? next[idx].image,
-        slug: item.slug ?? next[idx].slug,
-        quantity: next[idx].quantity + qty,
-      };
-      return next;
-    });
+    if (!item?.productId) return;
+    const updated = addToCartStorage({ productId: item.productId, title: item.title, price: item.price }, quantity);
+    setItems(updated);
   }, []);
 
   const removeItem = useCallback((productId: string) => {
-    setItems((prev) => prev.filter((x) => x.productId !== productId));
+    const updated = removeFromCart(productId);
+    setItems(updated);
   }, []);
 
   const updateQty = useCallback((productId: string, quantity: number) => {
-    const qty = coercePositiveInt(quantity, 0);
-    setItems((prev) => {
-      if (qty <= 0) return prev.filter((x) => x.productId !== productId);
-      return prev.map((x) => (x.productId === productId ? { ...x, quantity: qty } : x));
-    });
+    const updated = setCartQuantityStorage(productId, quantity);
+    setItems(updated);
   }, []);
 
-  const clearCart = useCallback(() => setItems([]), []);
+  const clearCart = useCallback(() => {
+    clearCartStorage();
+    setItems([]);
+  }, []);
 
   const totalItems = useCallback(() => {
     return items.reduce((sum, it) => sum + (it.quantity || 0), 0);

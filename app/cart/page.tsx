@@ -2,81 +2,78 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { useCart } from '@/app/providers/CartProvider';
-
-type StoredCartItem = {
-  productId: string;
-  title: string;
-  price: number; // cents
-  quantity: number;
-};
-
-const STORAGE_KEY = 'mulu_cart';
-
-function readStoredCart(): StoredCartItem[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    const items: StoredCartItem[] = [];
-    for (const x of parsed) {
-      if (!x || typeof x !== 'object') continue;
-      const it = x as any;
-      const productId = typeof it.productId === 'string' ? it.productId : '';
-      const title = typeof it.title === 'string' ? it.title : '';
-      const price = typeof it.price === 'number' ? it.price : Number(it.price);
-      const quantity = typeof it.quantity === 'number' ? it.quantity : Number(it.quantity);
-      if (!productId || !title || !Number.isFinite(price) || !Number.isFinite(quantity)) continue;
-      items.push({
-        productId,
-        title,
-        price: Math.max(0, Math.round(price)),
-        quantity: Math.max(1, Math.floor(quantity)),
-      });
-    }
-    return items;
-  } catch {
-    return [];
-  }
-}
+import { useEffect, useMemo, useState } from 'react';
+import { clearCart, readCart, removeFromCart, setCartQuantity, type CartItem, writeCart } from '@/lib/cart';
 
 export default function CartPage() {
   const router = useRouter();
-  const { items, addItem, removeItem, updateQty, clearCart, totalItems, totalAmount } = useCart();
+  const [items, setItems] = useState<CartItem[]>([]);
   const eur = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' });
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     // Step 24 requirement: read localStorage on mount (safe parse).
-    // Also keep the CartProvider in sync in case other pages wrote directly to localStorage.
-    const stored = readStoredCart();
-    if (stored.length === 0) return;
-    if (items.length > 0) return;
-    clearCart();
-    for (const it of stored) {
-      addItem({ productId: it.productId, title: it.title, price: it.price }, it.quantity);
+    // Also normalize immediately so duplicates disappear after refresh.
+    let rawCount = 0;
+    let hadRaw = false;
+    try {
+      const raw = window.localStorage.getItem('mulu_cart');
+      hadRaw = Boolean(raw && raw.trim().length > 0);
+      const parsed = raw ? JSON.parse(raw) : [];
+      rawCount = Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      hadRaw = true;
+      rawCount = 0;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    const normalized = readCart();
+    writeCart(normalized);
+    setItems(normalized);
+    if (hadRaw && rawCount > normalized.length) {
+      setNotice('Duplicate cart items were merged.');
+    }
+
+    const onUpdate = () => setItems(readCart());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'mulu_cart') onUpdate();
+    };
+
+    window.addEventListener('mulu_cart_updated', onUpdate);
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      window.removeEventListener('mulu_cart_updated', onUpdate);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
   const onDec = (productId: string, currentQty: number) => {
-    updateQty(productId, Math.max(1, (currentQty || 1) - 1));
+    const nextQty = Math.max(1, (currentQty || 1) - 1);
+    const updated = setCartQuantity(productId, nextQty);
+    setItems(updated);
   };
 
   const onInc = (productId: string, currentQty: number) => {
-    updateQty(productId, Math.max(1, (currentQty || 1) + 1));
+    const nextQty = Math.max(1, (currentQty || 1) + 1);
+    const updated = setCartQuantity(productId, nextQty);
+    setItems(updated);
   };
 
   const onClear = () => {
-    try {
-      window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
-    }
     clearCart();
+    setItems([]);
   };
+
+  const onRemove = (productId: string) => {
+    const updated = removeFromCart(productId);
+    setItems(updated);
+  };
+
+  const totals = useMemo(() => {
+    const totalItems = items.reduce((sum, it) => sum + (it.quantity || 0), 0);
+    const totalAmount = items.reduce((sum, it) => sum + (it.price || 0) * (it.quantity || 0), 0);
+    return { totalItems, totalAmount };
+  }, [items]);
 
   return (
     <div>
@@ -85,6 +82,8 @@ export default function CartPage() {
       </div>
 
       <h1>Cart</h1>
+
+      {notice ? <div style={{ marginTop: '0.5rem', color: '#374151' }}>{notice}</div> : null}
 
       {items.length === 0 ? (
         <div style={{ marginTop: '0.75rem' }}>
@@ -139,7 +138,7 @@ export default function CartPage() {
 
                     <button
                       type="button"
-                      onClick={() => removeItem(it.productId)}
+                      onClick={() => onRemove(it.productId)}
                       style={{ padding: '0.25rem 0.5rem', background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 6 }}
                     >
                       Remove
@@ -154,10 +153,10 @@ export default function CartPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', maxWidth: 700, gap: '1rem', flexWrap: 'wrap' }}>
               <div>
                 <div>
-                  <strong>Total items:</strong> {totalItems()}
+                  <strong>Total items:</strong> {totals.totalItems}
                 </div>
                 <div style={{ marginTop: '0.25rem' }}>
-                  <strong>Total amount:</strong> {eur.format(totalAmount() / 100)}
+                  <strong>Total amount:</strong> {eur.format(totals.totalAmount / 100)}
                 </div>
               </div>
 

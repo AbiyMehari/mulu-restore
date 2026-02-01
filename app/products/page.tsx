@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { addToCart as addToCartStorage } from '@/lib/cart';
 
 type Product = {
   _id: string;
@@ -57,62 +58,7 @@ export default function ProductsPage() {
   }, []);
 
   const addToCart = (p: Product) => {
-    let cart: any[] = [];
-    try {
-      const raw = window.localStorage.getItem('mulu_cart');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        cart = Array.isArray(parsed) ? parsed : [];
-      }
-    } catch {
-      cart = [];
-    }
-
-    const idx = cart.findIndex((x) => x && typeof x === 'object' && (x as any).productId === p._id);
-    if (idx === -1) {
-      const updatedCart = [
-        ...cart,
-        {
-          productId: p._id,
-          title: p.title,
-          price: p.price,
-          image: getFirstImage(p.images),
-          quantity: 1,
-        },
-      ];
-      try {
-        window.localStorage.setItem('mulu_cart', JSON.stringify(updatedCart));
-      } catch {
-        // ignore
-      }
-      return;
-    }
-
-    const current = cart[idx] as any;
-    const currentQty =
-      typeof current.quantity === 'number'
-        ? current.quantity
-        : typeof current.qty === 'number'
-          ? current.qty
-          : 0;
-    const nextQty = Math.max(0, Math.floor(currentQty)) + 1;
-
-    const updatedCart = cart.slice();
-    updatedCart[idx] = {
-      ...current,
-      productId: p._id,
-      title: p.title,
-      price: p.price,
-      image: current.image || getFirstImage(p.images),
-      quantity: nextQty,
-      qty: nextQty, // keep backwards compatibility if present
-    };
-
-    try {
-      window.localStorage.setItem('mulu_cart', JSON.stringify(updatedCart));
-    } catch {
-      // ignore
-    }
+    addToCartStorage({ productId: p._id, title: p.title, price: p.price }, 1);
   };
 
   return (
