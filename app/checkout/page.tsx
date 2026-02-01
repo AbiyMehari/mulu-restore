@@ -7,7 +7,7 @@ import { useCart } from '@/app/providers/CartProvider';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, totalItems, totalAmount, clearCart } = useCart();
+  const { items, totalItems, totalAmount } = useCart();
   const eur = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' });
   const [stockById, setStockById] = useState<Record<string, number | null>>({});
 
@@ -188,7 +188,7 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/orders', {
+      const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderPayload),
@@ -196,6 +196,10 @@ export default function CheckoutPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        if (res.status === 401) {
+          router.push(`/auth/login?callbackUrl=${encodeURIComponent('/checkout')}`);
+          return;
+        }
         if (res.status === 409) {
           setMessage({ type: 'error', text: data?.error || 'Out of stock' });
           return;
@@ -204,19 +208,14 @@ export default function CheckoutPage() {
         return;
       }
 
-      const orderId = data?.item?._id;
-      if (!orderId) {
+      const url = data?.url;
+      if (!url || typeof url !== 'string') {
         setMessage({ type: 'error', text: 'Order could not be placed. Please try again.' });
         return;
       }
 
-      clearCart();
-      try {
-        window.localStorage.removeItem('mulu_cart');
-      } catch {
-        // ignore
-      }
-      router.push(`/order/success?id=${orderId}`);
+      // Redirect to Stripe Checkout
+      window.location.assign(url);
     } catch (err) {
       console.error('Checkout failed:', err);
       setMessage({ type: 'error', text: 'Order could not be placed. Please try again.' });

@@ -25,6 +25,8 @@ export interface IOrder extends Document {
   status: OrderStatus;
   currency: string;
   totalAmount: number; // cents
+  paymentIntentId?: string;
+  stripeSessionId?: string;
   items: IOrderItem[];
   shippingAddress: IShippingAddress;
   createdAt: Date;
@@ -66,6 +68,8 @@ const OrderSchema = new Schema<IOrder>(
     },
     currency: { type: String, required: true, default: 'EUR' },
     totalAmount: { type: Number, required: true, min: 0 },
+    paymentIntentId: { type: String, trim: true },
+    stripeSessionId: { type: String, trim: true },
     items: { type: [OrderItemSchema], required: true, default: [] },
     shippingAddress: { type: ShippingAddressSchema, required: true },
   },
