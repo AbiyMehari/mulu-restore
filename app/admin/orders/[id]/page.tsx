@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
+import OrderStatusForm from './OrderStatusForm';
 
 type OrderItem = {
   _id: string;
@@ -73,6 +74,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
         </div>
         <div style={{ marginBottom: '0.5rem' }}>
           <strong>Status:</strong> {item.status ?? '—'}
+          <OrderStatusForm id={item._id} initialStatus={item.status} />
         </div>
         <div style={{ marginBottom: '0.5rem' }}>
           <strong>Total:</strong>{' '}
