@@ -5,6 +5,50 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { clearCart, readCart, removeFromCart, setCartQuantity, type CartItem, writeCart } from '@/lib/cart';
 
+function normalizeCartItems(raw: unknown): { items: CartItem[]; invalidRemoved: boolean; duplicatesMerged: boolean } {
+  if (!Array.isArray(raw)) return { items: [], invalidRemoved: false, duplicatesMerged: false };
+
+  const byId = new Map<string, CartItem>();
+  let invalidRemoved = false;
+  let duplicatesMerged = false;
+
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') {
+      invalidRemoved = true;
+      continue;
+    }
+    const e = entry as any;
+    const productId = typeof e.productId === 'string' ? e.productId.trim() : '';
+    if (!productId) {
+      invalidRemoved = true;
+      continue;
+    }
+
+    const title = typeof e.title === 'string' && e.title.trim() ? e.title.trim() : 'Untitled item';
+    const priceNum = typeof e.price === 'number' ? e.price : Number(e.price);
+    const price = Number.isFinite(priceNum) ? Math.max(0, Math.round(priceNum)) : 0;
+
+    const qtyNum = typeof e.quantity === 'number' ? e.quantity : typeof e.qty === 'number' ? e.qty : Number(e.quantity ?? e.qty);
+    const quantity = Number.isFinite(qtyNum) ? Math.max(1, Math.floor(qtyNum)) : 1;
+
+    const existing = byId.get(productId);
+    if (!existing) {
+      byId.set(productId, { productId, title, price, quantity });
+      continue;
+    }
+
+    duplicatesMerged = true;
+    byId.set(productId, {
+      productId,
+      title: title || existing.title,
+      price: Number.isFinite(price) ? price : existing.price,
+      quantity: (existing.quantity || 0) + quantity,
+    });
+  }
+
+  return { items: Array.from(byId.values()), invalidRemoved, duplicatesMerged };
+}
+
 export default function CartPage() {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
@@ -14,25 +58,29 @@ export default function CartPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    // Step 24 requirement: read localStorage on mount (safe parse).
-    // Also normalize immediately so duplicates disappear after refresh.
-    let rawCount = 0;
+    // Safe load + normalize localStorage("mulu_cart") so bad/legacy shapes can't crash the page.
+    let parsed: unknown = [];
     let hadRaw = false;
     try {
       const raw = window.localStorage.getItem('mulu_cart');
       hadRaw = Boolean(raw && raw.trim().length > 0);
-      const parsed = raw ? JSON.parse(raw) : [];
-      rawCount = Array.isArray(parsed) ? parsed.length : 0;
+      parsed = raw ? JSON.parse(raw) : [];
     } catch {
       hadRaw = true;
-      rawCount = 0;
+      parsed = [];
     }
 
-    const normalized = readCart();
+    const { items: normalized, invalidRemoved, duplicatesMerged } = normalizeCartItems(parsed);
+    // Always write back normalized cart so future reads are safe/consistent.
     writeCart(normalized);
     setItems(normalized);
-    if (hadRaw && rawCount > normalized.length) {
-      setNotice('Duplicate cart items were merged.');
+
+    if (hadRaw && (invalidRemoved || duplicatesMerged)) {
+      if (invalidRemoved) {
+        setNotice('Some invalid cart items were removed.');
+      } else if (duplicatesMerged) {
+        setNotice('Duplicate cart items were merged.');
+      }
     }
 
     const onUpdate = () => setItems(readCart());
