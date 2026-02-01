@@ -1,18 +1,81 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { useCart } from '@/app/providers/CartProvider';
 
+type StoredCartItem = {
+  productId: string;
+  title: string;
+  price: number; // cents
+  quantity: number;
+};
+
+const STORAGE_KEY = 'mulu_cart';
+
+function readStoredCart(): StoredCartItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const items: StoredCartItem[] = [];
+    for (const x of parsed) {
+      if (!x || typeof x !== 'object') continue;
+      const it = x as any;
+      const productId = typeof it.productId === 'string' ? it.productId : '';
+      const title = typeof it.title === 'string' ? it.title : '';
+      const price = typeof it.price === 'number' ? it.price : Number(it.price);
+      const quantity = typeof it.quantity === 'number' ? it.quantity : Number(it.quantity);
+      if (!productId || !title || !Number.isFinite(price) || !Number.isFinite(quantity)) continue;
+      items.push({
+        productId,
+        title,
+        price: Math.max(0, Math.round(price)),
+        quantity: Math.max(1, Math.floor(quantity)),
+      });
+    }
+    return items;
+  } catch {
+    return [];
+  }
+}
+
 export default function CartPage() {
-  const { items, removeItem, updateQty, clearCart, totalItems, totalAmount } = useCart();
+  const router = useRouter();
+  const { items, addItem, removeItem, updateQty, clearCart, totalItems, totalAmount } = useCart();
   const eur = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' });
 
+  useEffect(() => {
+    // Step 24 requirement: read localStorage on mount (safe parse).
+    // Also keep the CartProvider in sync in case other pages wrote directly to localStorage.
+    const stored = readStoredCart();
+    if (stored.length === 0) return;
+    if (items.length > 0) return;
+    clearCart();
+    for (const it of stored) {
+      addItem({ productId: it.productId, title: it.title, price: it.price }, it.quantity);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onDec = (productId: string, currentQty: number) => {
-    updateQty(productId, Math.max(0, currentQty - 1));
+    updateQty(productId, Math.max(1, (currentQty || 1) - 1));
   };
 
   const onInc = (productId: string, currentQty: number) => {
-    updateQty(productId, currentQty + 1);
+    updateQty(productId, Math.max(1, (currentQty || 1) + 1));
+  };
+
+  const onClear = () => {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    clearCart();
   };
 
   return (
@@ -24,7 +87,10 @@ export default function CartPage() {
       <h1>Cart</h1>
 
       {items.length === 0 ? (
-        <p>Your cart is empty.</p>
+        <div style={{ marginTop: '0.75rem' }}>
+          <p>Your cart is empty.</p>
+          <Link href="/products">Go to products</Link>
+        </div>
       ) : (
         <>
           <div style={{ marginTop: '1rem' }}>
@@ -45,23 +111,8 @@ export default function CartPage() {
                   }}
                 >
                   <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                    {it.image ? (
-                      <img
-                        src={it.image}
-                        alt={it.title}
-                        style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb' }}
-                      />
-                    ) : null}
                     <div>
-                      <div style={{ fontWeight: 600 }}>
-                        {it.slug ? (
-                          <Link href={`/products/${it.slug}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                            {it.title}
-                          </Link>
-                        ) : (
-                          it.title
-                        )}
-                      </div>
+                      <div style={{ fontWeight: 600 }}>{it.title}</div>
                       <div style={{ color: '#374151', marginTop: '0.25rem' }}>{eur.format((it.price ?? 0) / 100)} each</div>
                     </div>
                   </div>
@@ -73,7 +124,7 @@ export default function CartPage() {
                       </button>
                       <input
                         value={it.quantity}
-                        onChange={(e) => updateQty(it.productId, Number(e.target.value))}
+                        readOnly
                         inputMode="numeric"
                         style={{ width: 64, padding: '0.25rem 0.5rem' }}
                       />
@@ -100,7 +151,7 @@ export default function CartPage() {
           </div>
 
           <div style={{ marginTop: '1rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', maxWidth: 600 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', maxWidth: 700, gap: '1rem', flexWrap: 'wrap' }}>
               <div>
                 <div>
                   <strong>Total items:</strong> {totalItems()}
@@ -110,9 +161,19 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <button type="button" onClick={clearCart} style={{ padding: '0.5rem 0.75rem' }}>
-                Clear cart
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button type="button" onClick={onClear} style={{ padding: '0.5rem 0.75rem' }}>
+                  Clear cart
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/checkout')}
+                  disabled={items.length === 0}
+                  style={{ padding: '0.5rem 0.75rem' }}
+                >
+                  Go to checkout
+                </button>
+              </div>
             </div>
           </div>
         </>
