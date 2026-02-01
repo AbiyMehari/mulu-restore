@@ -1,5 +1,6 @@
 // TODO: Implement root layout with metadata, fonts, and providers
 import type { Metadata } from 'next';
+import { CartProvider } from '@/app/providers/CartProvider';
 
 export const metadata: Metadata = {
   title: 'Mulu ReStore',
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <CartProvider>{children}</CartProvider>
+      </body>
     </html>
   );
 }

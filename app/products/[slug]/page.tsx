@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
+import AddToCartButton from './AddToCartButton';
 
 type ProductDetail = {
   title: string;
@@ -8,6 +9,14 @@ type ProductDetail = {
   description: string;
   condition?: string;
   category?: { name: string; slug: string } | null;
+};
+
+type ProductListItem = {
+  _id: string;
+  title: string;
+  slug: string;
+  price: number;
+  images: string[];
 };
 
 export default async function ProductDetailPage({ params }: { params: { slug: string } }) {
@@ -54,6 +63,14 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
   }
 
   const images = Array.isArray(item.images) ? item.images : [];
+  const firstImage = images[0];
+
+  // Get a stable productId without changing the public detail API shape
+  const listRes = await fetch(`${base}/api/products`, { cache: 'no-store' });
+  const listData = listRes.ok ? ((await listRes.json().catch(() => ({}))) as { items?: ProductListItem[] }) : {};
+  const listItems = Array.isArray(listData.items) ? listData.items : [];
+  const matching = listItems.find((p) => p.slug === params.slug);
+  const productId = matching?._id || params.slug;
 
   return (
     <div>
@@ -63,6 +80,13 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
 
       <div style={{ marginTop: '1rem' }}>
         <div style={{ fontSize: '1.125rem', fontWeight: 600 }}>{eur.format((item.price ?? 0) / 100)}</div>
+        <AddToCartButton
+          productId={productId}
+          title={item.title}
+          price={item.price ?? 0}
+          slug={params.slug}
+          image={firstImage}
+        />
         <div style={{ marginTop: '0.25rem', color: '#374151' }}>
           <strong>Condition:</strong> {item.condition ?? '—'}
         </div>
