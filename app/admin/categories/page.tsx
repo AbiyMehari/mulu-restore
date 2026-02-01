@@ -46,6 +46,28 @@ export default function AdminCategoriesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const onDelete = async (id: string) => {
+    setMessage(null);
+    const ok = window.confirm('Delete this category?');
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/admin/categories/${id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setMessage({ type: 'error', text: data.error || `Failed (${res.status})` });
+        return;
+      }
+
+      setMessage({ type: 'success', text: 'Category deleted.' });
+      await loadCategories();
+    } catch (err) {
+      console.error('Failed to delete category:', err);
+      setMessage({ type: 'error', text: 'Request failed.' });
+    }
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
@@ -135,12 +157,15 @@ export default function AdminCategoriesPage() {
             <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #ddd' }}>
               Slug
             </th>
+            <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #ddd' }}>
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
           {!loading && items.length === 0 ? (
             <tr>
-              <td colSpan={2} style={{ padding: '0.75rem' }}>
+              <td colSpan={3} style={{ padding: '0.75rem' }}>
                 No categories yet.
               </td>
             </tr>
@@ -152,6 +177,22 @@ export default function AdminCategoriesPage() {
                 </td>
                 <td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
                   {c.slug}
+                </td>
+                <td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(c._id)}
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      background: '#b91c1c',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))
