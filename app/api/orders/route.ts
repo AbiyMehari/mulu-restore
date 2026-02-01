@@ -54,8 +54,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Validation error' }, { status: 400 });
     }
 
-    const items = [];
-    let totalAmount = 0;
+    const requestedByProductId = new Map<
+      string,
+      {
+        productId: string;
+        title: string;
+        unitPrice: number;
+        quantity: number;
+      }
+    >();
 
     for (const raw of body.items) {
       if (!raw || typeof raw !== 'object') {
@@ -84,20 +91,138 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid item: unitPrice is required' }, { status: 400 });
       }
 
-      items.push({
-        product: new mongoose.Types.ObjectId(productId),
-        title,
-        unitPrice,
-        quantity,
-      });
-
-      totalAmount += unitPrice * quantity;
+      const existing = requestedByProductId.get(productId);
+      if (!existing) {
+        requestedByProductId.set(productId, { productId, title, unitPrice, quantity });
+      } else {
+        requestedByProductId.set(productId, {
+          productId,
+          title: existing.title || title,
+          unitPrice: typeof existing.unitPrice === 'number' ? existing.unitPrice : unitPrice,
+          quantity: existing.quantity + quantity,
+        });
+      }
     }
 
-    // Prevent overselling by atomically decrementing stock for each item.
-    for (const it of items) {
-      const productId = (it as any).product?.toString?.() ?? '';
-      const quantity = (it as any).quantity as number;
+    const requestedItems = Array.from(requestedByProductId.values());
+    if (requestedItems.length === 0) {
+      return NextResponse.json({ error: 'Validation error' }, { status: 400 });
+    }
+
+    // Build order line-item snapshot
+    const items = requestedItems.map((it) => ({
+      product: new mongoose.Types.ObjectId(it.productId),
+      title: it.title,
+      unitPrice: it.unitPrice,
+      quantity: it.quantity,
+    }));
+
+    const totalAmount = requestedItems.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
+
+    // Validate products exist/active/not-deleted and have enough stock.
+    const ids = requestedItems.map((it) => new mongoose.Types.ObjectId(it.productId));
+    const products = await Product.find({
+      _id: { $in: ids },
+      isDeleted: false,
+      $or: [{ isActive: true }, { isActive: { $exists: false } }],
+    })
+      .select('_id title stockQuantity')
+      .lean();
+
+    const byId = new Map<string, { title?: string; stockQuantity?: number }>();
+    for (const p of products as any[]) {
+      const id = typeof p._id === 'string' ? p._id : p._id?.toString?.() ?? '';
+      if (id) byId.set(id, { title: p.title, stockQuantity: p.stockQuantity });
+    }
+
+    for (const it of requestedItems) {
+      const p = byId.get(it.productId);
+      const titleForMsg = p?.title || it.title || 'item';
+      const stockQty = typeof p?.stockQuantity === 'number' ? p.stockQuantity : -1;
+      if (!p || stockQty < it.quantity) {
+        return NextResponse.json({ error: `Insufficient stock for ${titleForMsg}` }, { status: 409 });
+      }
+    }
+
+    // Best-effort transaction: if unsupported, fall back to atomic updates + rollback.
+    const tryTransaction = async () => {
+      const session = await mongoose.startSession();
+      try {
+        let createdId: string | null = null;
+        await session.withTransaction(async () => {
+          // Atomically decrement stock inside the transaction as well.
+          for (const it of requestedItems) {
+            const updated = await Product.findOneAndUpdate(
+              {
+                _id: it.productId,
+                isDeleted: false,
+                $or: [{ isActive: true }, { isActive: { $exists: false } }],
+                stockQuantity: { $gte: it.quantity },
+              },
+              { $inc: { stockQuantity: -it.quantity } },
+              { new: true, session }
+            );
+            if (!updated) {
+              throw new Error(`INSUFFICIENT_STOCK:${it.productId}`);
+            }
+          }
+
+          const order = await Order.create(
+            [
+              {
+                guestEmail: email,
+                status: 'pending',
+                currency: 'EUR',
+                totalAmount,
+                items,
+                shippingAddress: {
+                  fullName,
+                  email,
+                  phone: phone || undefined,
+                  street,
+                  city,
+                  postalCode,
+                  country,
+                },
+              },
+            ],
+            { session }
+          );
+          createdId = order?.[0]?._id?.toString?.() ?? null;
+        });
+
+        if (!createdId) {
+          throw new Error('TRANSACTION_FAILED: order not created');
+        }
+        return createdId;
+      } finally {
+        session.endSession();
+      }
+    };
+
+    try {
+      const createdId = await tryTransaction();
+      return NextResponse.json({ item: { _id: createdId } }, { status: 201 });
+    } catch (err) {
+      // If it's a stock error inside the transaction, return 409.
+      if (err instanceof Error && err.message.startsWith('INSUFFICIENT_STOCK:')) {
+        const id = err.message.split(':')[1] || '';
+        const titleForMsg = byId.get(id)?.title || requestedByProductId.get(id)?.title || 'item';
+        return NextResponse.json({ error: `Insufficient stock for ${titleForMsg}` }, { status: 409 });
+      }
+      // If transactions aren't supported, we fall back below.
+      const msg = err instanceof Error ? err.message : String(err);
+      const looksLikeNoTransactions =
+        /Transaction numbers are only allowed|replica set member|Transaction is not supported|IllegalOperation/i.test(msg);
+      if (!looksLikeNoTransactions) {
+        throw err;
+      }
+    }
+
+    // Fallback: Prevent overselling by atomically decrementing stock for each item.
+    for (const it of requestedItems) {
+      const productId = it.productId;
+      const quantity = it.quantity;
 
       const updated = await Product.findOneAndUpdate(
         {
@@ -115,7 +240,8 @@ export async function POST(request: NextRequest) {
           Product.updateOne({ _id: id }, { $inc: { stockQuantity: qty } })
         );
         await Promise.allSettled(rollback);
-        return NextResponse.json({ error: 'Out of stock', productId }, { status: 409 });
+        const titleForMsg = byId.get(productId)?.title || requestedByProductId.get(productId)?.title || 'item';
+        return NextResponse.json({ error: `Insufficient stock for ${titleForMsg}` }, { status: 409 });
       }
 
       decrementedByProductId[productId] = (decrementedByProductId[productId] ?? 0) + quantity;
