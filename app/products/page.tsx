@@ -12,22 +12,12 @@ type Product = {
   category?: { name?: string; slug?: string } | null;
 };
 
-type StoredCartItem = {
-  productId: string;
-  title: string;
-  price: number; // cents
-  qty: number;
-  // keep compatibility with existing cart pages/provider
-  quantity?: number;
-};
-
-function normalizeImages(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  if (value.length === 0) return [];
-  if (typeof value[0] === 'string') return value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
-  return value
-    .map((v) => (v && typeof v === 'object' ? (v as any).url : undefined))
-    .filter((u): u is string => typeof u === 'string' && u.trim().length > 0);
+function getFirstImage(images: any): string {
+  if (!Array.isArray(images) || images.length === 0) return '';
+  const first = images[0];
+  if (typeof first === 'string') return first;
+  if (first && typeof first === 'object' && typeof first.url === 'string') return first.url;
+  return '';
 }
 
 export default function ProductsPage() {
@@ -67,30 +57,61 @@ export default function ProductsPage() {
   }, []);
 
   const addToCart = (p: Product) => {
+    let cart: any[] = [];
     try {
       const raw = window.localStorage.getItem('mulu_cart');
-      const parsed = raw ? JSON.parse(raw) : [];
-      const existing: StoredCartItem[] = Array.isArray(parsed) ? parsed : [];
-
-      const idx = existing.findIndex((x) => x && typeof x === 'object' && (x as any).productId === p._id);
-      if (idx === -1) {
-        const next: StoredCartItem[] = [
-          ...existing,
-          { productId: p._id, title: p.title, price: p.price, qty: 1, quantity: 1 },
-        ];
-        window.localStorage.setItem('mulu_cart', JSON.stringify(next));
-        return;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        cart = Array.isArray(parsed) ? parsed : [];
       }
-
-      const cur = existing[idx];
-      const currentQty = typeof (cur as any).qty === 'number' ? (cur as any).qty : typeof (cur as any).quantity === 'number' ? (cur as any).quantity : 0;
-      const nextQty = Math.max(0, Math.floor(currentQty)) + 1;
-
-      const next = existing.slice();
-      next[idx] = { ...cur, title: p.title, price: p.price, qty: nextQty, quantity: nextQty };
-      window.localStorage.setItem('mulu_cart', JSON.stringify(next));
     } catch {
-      // If storage is unavailable, we silently ignore (per requirements: safe parse/write)
+      cart = [];
+    }
+
+    const idx = cart.findIndex((x) => x && typeof x === 'object' && (x as any).productId === p._id);
+    if (idx === -1) {
+      const updatedCart = [
+        ...cart,
+        {
+          productId: p._id,
+          title: p.title,
+          price: p.price,
+          image: getFirstImage(p.images),
+          quantity: 1,
+        },
+      ];
+      try {
+        window.localStorage.setItem('mulu_cart', JSON.stringify(updatedCart));
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    const current = cart[idx] as any;
+    const currentQty =
+      typeof current.quantity === 'number'
+        ? current.quantity
+        : typeof current.qty === 'number'
+          ? current.qty
+          : 0;
+    const nextQty = Math.max(0, Math.floor(currentQty)) + 1;
+
+    const updatedCart = cart.slice();
+    updatedCart[idx] = {
+      ...current,
+      productId: p._id,
+      title: p.title,
+      price: p.price,
+      image: current.image || getFirstImage(p.images),
+      quantity: nextQty,
+      qty: nextQty, // keep backwards compatibility if present
+    };
+
+    try {
+      window.localStorage.setItem('mulu_cart', JSON.stringify(updatedCart));
+    } catch {
+      // ignore
     }
   };
 
@@ -111,8 +132,7 @@ export default function ProductsPage() {
         }}
       >
         {items.map((p) => {
-          const images = normalizeImages(p.images);
-          const image = images[0];
+          const image = getFirstImage(p.images);
           return (
             <div
               key={p._id}
