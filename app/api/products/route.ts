@@ -1,72 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Product from '@/models/Product';
 
 /**
  * GET /api/products
- * Returns paginated list of active, non-deleted products
  * No authentication required
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Connect to database
     await connectDB();
 
-    // Get query parameters
-    const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '12', 10);
-    const category = searchParams.get('category');
-    const search = searchParams.get('search');
-
-    // Validate pagination parameters
-    const pageNumber = Math.max(1, page);
-    const limitNumber = Math.min(Math.max(1, limit), 100); // Max 100 items per page
-    const skip = (pageNumber - 1) * limitNumber;
-
-    // Build query filter
-    const filter: any = {
+    const filter = {
       isActive: true,
       isDeleted: false,
     };
 
-    // Add category filter if provided
-    if (category) {
-      filter.category = category;
-    }
+    const products = await Product.find(filter)
+      .populate('category', 'name slug')
+      .select('_id title slug price images category')
+      .sort({ createdAt: -1 })
+      .lean();
 
-    // Add search filter if provided (search in title and descriptions)
-    if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { shortDescription: { $regex: search, $options: 'i' } },
-        { fullDescription: { $regex: search, $options: 'i' } },
-      ];
-    }
+    const items = products.map((p: any) => ({
+      _id: typeof p._id === 'string' ? p._id : p._id?.toString?.() ?? p._id,
+      title: p.title,
+      slug: p.slug,
+      price: p.price,
+      images: Array.isArray(p.images) ? p.images : [],
+      category: p.category ? { name: p.category.name, slug: p.category.slug } : null,
+    }));
 
-    // Execute query with pagination
-    const [items, total] = await Promise.all([
-      Product.find(filter)
-        .populate('category', 'name slug')
-        .select('-fullDescription')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNumber)
-        .lean(),
-      Product.countDocuments(filter),
-    ]);
-
-    return NextResponse.json({
-      items,
-      page: pageNumber,
-      limit: limitNumber,
-      total,
-    });
+    return NextResponse.json({ items }, { status: 200 });
   } catch (error) {
     console.error('Error fetching products:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch products' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to load products' }, { status: 500 });
   }
 }
