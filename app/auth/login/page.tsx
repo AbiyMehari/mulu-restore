@@ -47,8 +47,8 @@ export default function LoginPage() {
           router.push('/admin');
           router.refresh();
         } else {
-          // For regular users, use callbackUrl or default to home
-          router.push(callbackUrl);
+          // For customer users, redirect to checkout
+          router.push('/checkout');
           router.refresh();
         }
       }, 1000);

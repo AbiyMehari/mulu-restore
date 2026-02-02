@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { CartProvider } from '@/app/providers/CartProvider';
+import { SessionProvider } from '@/app/providers/SessionProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <CartProvider>{children}</CartProvider>
+        <SessionProvider>
+          <CartProvider>{children}</CartProvider>
+        </SessionProvider>
       </body>
     </html>
   );
