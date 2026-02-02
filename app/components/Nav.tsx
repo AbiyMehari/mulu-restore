@@ -31,7 +31,7 @@ export default function Nav() {
               Mulu ReStore
             </span>
           </Link>
-          <div className="flex gap-6 items-center">
+          <div className="flex gap-4 items-center">
             <Link href="/products" className="text-gray-700 hover:text-green-700 transition-colors">
               Products
             </Link>
@@ -41,12 +41,12 @@ export default function Nav() {
             {session ? (
               <button
                 onClick={handleLogout}
-                className="text-gray-700 hover:text-green-700 transition-colors ml-32"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm ml-4"
               >
-                Logout
+                Log out
               </button>
             ) : (
-              <Link href="/auth/login" className="text-gray-700 hover:text-green-700 transition-colors ml-32">
+              <Link href="/auth/login" className="text-gray-700 hover:text-green-700 transition-colors ml-4">
                 Login
               </Link>
             )}
