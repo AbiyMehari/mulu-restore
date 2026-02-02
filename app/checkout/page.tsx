@@ -196,15 +196,11 @@ export default function CheckoutPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        if (res.status === 401) {
-          router.push(`/auth/login?callbackUrl=${encodeURIComponent('/checkout')}`);
-          return;
-        }
         if (res.status === 409) {
           setMessage({ type: 'error', text: data?.error || 'Out of stock' });
           return;
         }
-        setMessage({ type: 'error', text: 'Order could not be placed. Please try again.' });
+        setMessage({ type: 'error', text: data?.error || 'Order could not be placed. Please try again.' });
         return;
       }
 

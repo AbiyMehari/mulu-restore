@@ -3,9 +3,8 @@ import mongoose from 'mongoose';
 import connectDB from '@/lib/db';
 import Order from '@/models/Order';
 import Product from '@/models/Product';
-import { requireAuth } from '@/lib/auth';
 import { getStripe } from '@/lib/stripe';
-import { getBaseUrl } from '@/config/stripe';
+import { getBaseUrl, STRIPE_SECRET_KEY } from '@/config/stripe';
 
 export const runtime = 'nodejs';
 
@@ -31,25 +30,19 @@ function asNumber(value: unknown) {
 
 /**
  * POST /api/checkout
- * Create Stripe Checkout Session (auth required)
+ * Create Stripe Checkout Session (guest checkout)
  */
 export async function POST(request: NextRequest) {
   const decrementedByProductId: Record<string, number> = {};
   let createdOrderId: string | null = null;
 
   try {
-    let user: Awaited<ReturnType<typeof requireAuth>>;
-    try {
-      user = await requireAuth();
-    } catch (authError) {
-      const msg = authError instanceof Error ? authError.message : 'Authentication required';
-      if (msg === 'Authentication required') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    if (user.role !== 'customer') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Fail fast if Stripe isn't configured (avoid creating/cancelling orders unnecessarily).
+    if (!STRIPE_SECRET_KEY || STRIPE_SECRET_KEY.includes('...')) {
+      return NextResponse.json(
+        { error: 'Stripe is not configured. Set STRIPE_SECRET_KEY in .env.local (use a real test key, not sk_test_...).' },
+        { status: 500 }
+      );
     }
 
     await connectDB();
@@ -59,7 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Validation error' }, { status: 400 });
     }
 
-    const email = asTrimmedString(body.email).toLowerCase() || user.email;
+    const email = asTrimmedString(body.email).toLowerCase();
     const fullName = asTrimmedString(body.fullName);
     const street = asTrimmedString(body.street);
     const city = asTrimmedString(body.city);
@@ -199,7 +192,7 @@ export async function POST(request: NextRequest) {
           const order = await Order.create(
             [
               {
-                user: new mongoose.Types.ObjectId(user.id),
+                guestEmail: email,
                 status: 'pending',
                 currency: 'EUR',
                 totalAmount,
@@ -270,7 +263,7 @@ export async function POST(request: NextRequest) {
       }
 
       const order = await Order.create({
-        user: new mongoose.Types.ObjectId(user.id),
+        guestEmail: email,
         status: 'pending',
         currency: 'EUR',
         totalAmount,
@@ -288,7 +281,20 @@ export async function POST(request: NextRequest) {
       createdOrderId = order._id.toString();
     }
 
-    const stripe = getStripe();
+    if (!STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: 'Stripe secret key (STRIPE_SECRET_KEY) is missing' }, { status: 500 });
+    }
+
+    let stripe: ReturnType<typeof getStripe>;
+    try {
+      stripe = getStripe();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'STRIPE_SECRET_KEY is not set') {
+        return NextResponse.json({ error: 'Stripe secret key (STRIPE_SECRET_KEY) is missing' }, { status: 500 });
+      }
+      throw e;
+    }
     const baseUrl = getBaseUrl(request);
 
     const session = await stripe.checkout.sessions.create({
@@ -303,11 +309,11 @@ export async function POST(request: NextRequest) {
       })),
       success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/checkout/cancel`,
-      customer_email: user.email,
+      customer_email: email,
       client_reference_id: createdOrderId,
       metadata: {
         orderId: createdOrderId,
-        userId: user.id,
+        userId: 'guest',
       },
     });
 
@@ -349,7 +355,17 @@ export async function POST(request: NextRequest) {
       console.error('Failed to rollback checkout creation:', rollbackError);
     }
 
-    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 });
+    const rawMsg =
+      (error as any)?.raw && typeof (error as any).raw.message === 'string' ? String((error as any).raw.message) : '';
+    const type = typeof (error as any)?.type === 'string' ? String((error as any).type) : '';
+
+    // Avoid echoing secrets back to the client.
+    const looksLikeAuth = type === 'StripeAuthenticationError' || /Invalid API Key provided/i.test(rawMsg);
+    const safeMessage = looksLikeAuth
+      ? 'Invalid Stripe API key. Check STRIPE_SECRET_KEY in .env.local and restart the dev server.'
+      : rawMsg || (error instanceof Error ? error.message : '') || 'Failed to create checkout session';
+
+    return NextResponse.json({ error: safeMessage }, { status: 500 });
   }
 }
 
