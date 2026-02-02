@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function HomePage() {
   return (
@@ -7,8 +8,17 @@ export default function HomePage() {
       <nav className="bg-white/80 backdrop-blur-sm border-b border-green-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/" className="text-2xl font-bold text-green-800">
-              Mulu ReStore
+            <Link href="/" className="flex items-center gap-3">
+              <Image
+                src="/logo.png"
+                alt="Mulu ReStore Logo"
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+              <span className="text-2xl font-bold text-green-800">
+                Mulu ReStore
+              </span>
             </Link>
             <div className="flex gap-6">
               <Link href="/products" className="text-gray-700 hover:text-green-700 transition-colors">
@@ -81,7 +91,7 @@ export default function HomePage() {
             <div className="bg-amber-50 p-6 rounded-lg border-l-4 border-amber-600 my-8">
               <h3 className="text-2xl font-semibold text-gray-900 mb-4">Our Roots</h3>
               <p className="leading-relaxed">
-                Mulu ReStore builds on our long-standing work in Ethiopia, where we partnered with a farming community to establish the <strong className="text-amber-800">Mulu Eco Lodge</strong> – a United Nations-awarded project for sustainable regional development. We promote traditional Ethiopian craftsmanship and source products directly and fairly from cooperatives and workshops, ensuring that the added value directly benefits local communities.
+                Mulu ReStore builds on our long-standing work in Ethiopia, where we partnered with a farming community to establish the <a href="https://mululodge.com" target="_blank" rel="noopener noreferrer" className="text-amber-800 font-semibold hover:text-amber-900 underline">Mulu Eco Lodge</a> – a United Nations-awarded project for sustainable regional development. We promote traditional Ethiopian craftsmanship and source products directly and fairly from cooperatives and workshops, ensuring that the added value directly benefits local communities.
               </p>
             </div>
 
@@ -159,7 +169,16 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-3 gap-8 mb-8">
             <div>
-              <h3 className="text-xl font-bold text-white mb-4">Mulu ReStore</h3>
+              <div className="flex items-center gap-2 mb-4">
+                <Image
+                  src="/logo.png"
+                  alt="Mulu ReStore Logo"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                />
+                <h3 className="text-xl font-bold text-white">Mulu ReStore</h3>
+              </div>
               <p className="text-sm">
                 Intercultural. Sustainable. Connected.
               </p>
