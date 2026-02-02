@@ -17,17 +17,9 @@ type DashboardResponse = {
 
 function KpiCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div
-      style={{
-        border: '1px solid #e5e7eb',
-        borderRadius: 10,
-        padding: '1rem',
-        minWidth: 180,
-        background: '#fff',
-      }}
-    >
-      <div style={{ color: '#6b7280', fontSize: 14 }}>{label}</div>
-      <div style={{ marginTop: '0.35rem', fontSize: 28, fontWeight: 700 }}>{value}</div>
+    <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-700 hover:shadow-lg transition-shadow">
+      <div className="text-sm text-gray-600 mb-2">{label}</div>
+      <div className="text-3xl font-bold text-gray-900">{value}</div>
     </div>
   );
 }
@@ -44,9 +36,9 @@ export default async function AdminPage() {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     return (
-      <div>
-        <h1>Dashboard</h1>
-        <p style={{ color: '#b91c1c' }}>{err.error || 'Failed to load dashboard'}</p>
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Dashboard</h1>
+        <p className="text-red-600">{err.error || 'Failed to load dashboard'}</p>
       </div>
     );
   }
@@ -60,51 +52,79 @@ export default async function AdminPage() {
 
   return (
     <div>
-      <h1>Dashboard</h1>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem' }}>
-        <KpiCard label="Orders" value={totalOrders} />
-        <KpiCard label="Revenue" value={eur.format(totalRevenue / 100)} />
-        <KpiCard label="Products" value={totalProducts} />
-        <KpiCard label="Customers" value={totalCustomers} />
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
+        <div className="w-24 h-1 bg-green-700"></div>
       </div>
 
-      <h2 style={{ marginTop: '2rem' }}>Recent Orders</h2>
-      <table style={{ width: '100%', borderCollapse: 'collapse', maxWidth: 1000, marginTop: '1rem' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Date</th>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Customer</th>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Status</th>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Total</th>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Link</th>
-          </tr>
-        </thead>
-        <tbody>
-          {recentOrders.length === 0 ? (
-            <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-              <td style={{ padding: '0.75rem' }} colSpan={5}>
-                No orders yet.
-              </td>
-            </tr>
-          ) : (
-            recentOrders.map((o) => (
-              <tr key={o._id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <td style={{ padding: '0.75rem' }}>{o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'}</td>
-                <td style={{ padding: '0.75rem' }}>{o.customerEmail || '—'}</td>
-                <td style={{ padding: '0.75rem' }}>{o.status || 'pending'}</td>
-                <td style={{ padding: '0.75rem' }}>
-                  {typeof o.totalAmount === 'number' ? eur.format(o.totalAmount / 100) : '—'}
-                </td>
-                <td style={{ padding: '0.75rem' }}>
-                  <Link href={`/admin/orders/${o._id}`}>View</Link>
-                </td>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <KpiCard label="Total Orders" value={totalOrders} />
+        <KpiCard label="Total Revenue" value={eur.format(totalRevenue / 100)} />
+        <KpiCard label="Total Products" value={totalProducts} />
+        <KpiCard label="Total Customers" value={totalCustomers} />
+      </div>
+
+      {/* Recent Orders */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-2xl font-semibold text-gray-900">Recent Orders</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {recentOrders.length === 0 ? (
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" colSpan={5}>
+                    No orders yet.
+                  </td>
+                </tr>
+              ) : (
+                recentOrders.map((o) => (
+                  <tr key={o._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {o.customerEmail || '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        o.status === 'paid' ? 'bg-green-100 text-green-800' :
+                        o.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        o.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {o.status || 'pending'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {typeof o.totalAmount === 'number' ? eur.format(o.totalAmount / 100) : '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <Link
+                        href={`/admin/orders/${o._id}`}
+                        className="text-green-700 hover:text-green-800 font-medium transition-colors"
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
-

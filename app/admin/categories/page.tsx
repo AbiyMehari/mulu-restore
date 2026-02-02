@@ -39,7 +39,6 @@ export default function AdminCategoriesPage() {
             : typeof data === 'string'
               ? data
               : '';
-        // Avoid dumping full HTML into the UI; just show a short hint.
         const short = errText.replace(/\s+/g, ' ').trim().slice(0, 200);
         setLoadError(short || `Failed to load categories (${res.status})`);
         return;
@@ -138,104 +137,110 @@ export default function AdminCategoriesPage() {
 
   return (
     <div>
-      <h1>Categories</h1>
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Categories</h1>
+        <div className="w-24 h-1 bg-green-700"></div>
+      </div>
 
-      <form onSubmit={onSubmit} style={{ maxWidth: 500, marginTop: '1rem', marginBottom: '1.5rem' }}>
-        <h2 style={{ marginBottom: '0.5rem' }}>Add Category</h2>
-
-        <div style={{ marginBottom: '0.75rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.25rem' }}>Name</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            style={{ width: '100%', padding: '0.5rem' }}
-            placeholder="e.g. Sideboards"
-          />
-        </div>
-
-        <div style={{ marginBottom: '0.75rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.25rem' }}>Slug</label>
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            required
-            style={{ width: '100%', padding: '0.5rem' }}
-            placeholder="e.g. sideboards"
-          />
-        </div>
-
-        {message && (
-          <div style={{ marginBottom: '0.75rem', color: message.type === 'error' ? '#b91c1c' : '#15803d' }}>
-            {message.text}
-          </div>
-        )}
-
-        <button type="submit" disabled={submitting} style={{ padding: '0.5rem 1rem' }}>
-          {submitting ? 'Saving...' : 'Create'}
-        </button>
-      </form>
-
-      {loading ? <p>Loading…</p> : null}
-      {!loading && loadError ? <p style={{ color: '#b91c1c' }}>{loadError}</p> : null}
-
-      <table
-        style={{
-          width: '100%',
-          maxWidth: 700,
-          borderCollapse: 'collapse',
-        }}
-      >
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #ddd' }}>
+      {/* Create Form */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Add Category</h2>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
               Name
-            </th>
-            <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #ddd' }}>
+            </label>
+            <input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+              placeholder="e.g. Sideboards"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-2">
               Slug
-            </th>
-            <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #ddd' }}>
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {!loading && items.length === 0 ? (
-            <tr>
-              <td colSpan={3} style={{ padding: '0.75rem' }}>
-                No categories yet.
-              </td>
-            </tr>
-          ) : (
-            items.map((c) => (
-              <tr key={c._id}>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
-                  {c.name}
-                </td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
-                  {c.slug}
-                </td>
-                <td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(c._id)}
-                    style={{
-                      padding: '0.25rem 0.5rem',
-                      background: '#b91c1c',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))
+            </label>
+            <input
+              id="slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+              placeholder="e.g. sideboards"
+            />
+          </div>
+
+          {message && (
+            <div
+              className={`p-3 rounded-lg ${
+                message.type === 'error' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700'
+              }`}
+            >
+              {message.text}
+            </div>
           )}
-        </tbody>
-      </table>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="bg-green-700 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? 'Saving...' : 'Create'}
+          </button>
+        </form>
+      </div>
+
+      {/* Loading/Error States */}
+      {loading && <p className="text-gray-600 mb-4">Loading…</p>}
+      {!loading && loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-4">
+          {loadError}
+        </div>
+      )}
+
+      {/* Categories Table */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slug</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {!loading && items.length === 0 ? (
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" colSpan={3}>
+                    No categories yet.
+                  </td>
+                </tr>
+              ) : (
+                items.map((c) => (
+                  <tr key={c._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{c.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.slug}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(c._id)}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

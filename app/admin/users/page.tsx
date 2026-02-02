@@ -19,9 +19,9 @@ export default async function AdminUsersPage() {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     return (
-      <div>
-        <h1>Users</h1>
-        <p style={{ color: '#b91c1c' }}>{err.error || 'Failed to load users'}</p>
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Users</h1>
+        <p className="text-red-600">{err.error || 'Failed to load users'}</p>
       </div>
     );
   }
@@ -31,38 +31,51 @@ export default async function AdminUsersPage() {
 
   return (
     <div>
-      <h1>Users</h1>
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Users</h1>
+        <div className="w-24 h-1 bg-green-700"></div>
+      </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', maxWidth: 900, marginTop: '1rem' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Email</th>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Role</th>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Name</th>
-            <th style={{ textAlign: 'left', padding: '0.75rem' }}>Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.length === 0 ? (
-            <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-              <td style={{ padding: '0.75rem' }} colSpan={4}>
-                No users yet.
-              </td>
-            </tr>
-          ) : (
-            items.map((u) => (
-              <tr key={u._id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <td style={{ padding: '0.75rem' }}>{u.email}</td>
-                <td style={{ padding: '0.75rem' }}>{u.role}</td>
-                <td style={{ padding: '0.75rem' }}>{u.name || '—'}</td>
-                <td style={{ padding: '0.75rem' }}>
-                  {u.createdAt ? new Date(u.createdAt).toLocaleString() : '—'}
-                </td>
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {items.length === 0 ? (
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" colSpan={4}>
+                    No users yet.
+                  </td>
+                </tr>
+              ) : (
+                items.map((u) => (
+                  <tr key={u._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
+                      }`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.name || '—'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {u.createdAt ? new Date(u.createdAt).toLocaleString() : '—'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
