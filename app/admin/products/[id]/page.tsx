@@ -11,7 +11,7 @@ type ProductItem = {
   price: number;
   stockQuantity: number;
   category?: { _id: string; name: string; slug: string };
-  condition: 'vintage' | 'restored' | 'used';
+  condition: 'very_good' | 'good' | 'okay';
   shortDescription: string;
   fullDescription: string;
   images?: string[];
@@ -29,7 +29,7 @@ export default function EditProductPage() {
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [condition, setCondition] = useState<'vintage' | 'restored' | 'used'>('vintage');
+  const [condition, setCondition] = useState<'very_good' | 'good' | 'okay'>('very_good');
   const [shortDescription, setShortDescription] = useState('');
   const [fullDescription, setFullDescription] = useState('');
   const [imagesText, setImagesText] = useState('');
@@ -53,7 +53,7 @@ export default function EditProductPage() {
         setPrice(item.price != null ? (item.price / 100).toFixed(2) : '');
         setStock(String(item.stockQuantity ?? ''));
         setCategoryId(item.category?._id ?? '');
-        setCondition(item.condition ?? 'vintage');
+        setCondition(item.condition ?? 'very_good');
         setShortDescription(item.shortDescription ?? '');
         setFullDescription(item.fullDescription ?? '');
         setImagesText(Array.isArray(item.images) ? item.images.join('\n') : '');
@@ -203,12 +203,12 @@ export default function EditProductPage() {
           <label style={labelStyle}>Condition</label>
           <select
             value={condition}
-            onChange={(e) => setCondition(e.target.value as 'vintage' | 'restored' | 'used')}
+            onChange={(e) => setCondition(e.target.value as 'very_good' | 'good' | 'okay')}
             style={inputStyle}
           >
-            <option value="vintage">Vintage</option>
-            <option value="restored">Restored</option>
-            <option value="used">Used</option>
+            <option value="very_good">Very good</option>
+            <option value="good">Good</option>
+            <option value="okay">Okay</option>
           </select>
         </div>
         <div style={formStyle}>

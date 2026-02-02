@@ -17,7 +17,7 @@ export default function NewProductPage() {
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [condition, setCondition] = useState<'new' | 'excellent' | 'good' | 'fair'>('new');
+  const [condition, setCondition] = useState<'very_good' | 'good' | 'okay'>('very_good');
   const [shortDescription, setShortDescription] = useState('');
   const [fullDescription, setFullDescription] = useState('');
   const [imagesText, setImagesText] = useState('');
@@ -59,16 +59,13 @@ export default function NewProductPage() {
     const euroAmount = Number(price || '0');
     const priceInCents = Number.isFinite(euroAmount) ? Math.max(0, Math.round(euroAmount * 100)) : 0;
 
-    const conditionForApi: 'vintage' | 'restored' | 'used' =
-      condition === 'new' ? 'restored' : condition === 'excellent' ? 'restored' : condition === 'good' ? 'used' : 'vintage';
-
     const body = {
       title,
       slug,
       price: priceInCents,
       stock: parseInt(stock || '0', 10),
       categoryId,
-      condition: conditionForApi,
+      condition,
       descriptionShort: shortDescription,
       description: fullDescription,
       images,
@@ -210,13 +207,12 @@ export default function NewProductPage() {
               <select
                 id="condition"
                 value={condition}
-                onChange={(e) => setCondition(e.target.value as 'new' | 'excellent' | 'good' | 'fair')}
+                onChange={(e) => setCondition(e.target.value as 'very_good' | 'good' | 'okay')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
               >
-                <option value="new">New</option>
-                <option value="excellent">Excellent</option>
+                <option value="very_good">Very good</option>
                 <option value="good">Good</option>
-                <option value="fair">Fair</option>
+                <option value="okay">Okay</option>
               </select>
             </div>
           </div>

@@ -102,7 +102,7 @@ const ProductSchema = new Schema<IProduct>(
     condition: {
       type: String,
       required: true,
-      enum: ['vintage', 'restored', 'used'],
+      enum: ['very_good', 'good', 'okay'],
     },
     attributes: {
       material: {

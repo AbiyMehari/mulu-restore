@@ -18,7 +18,7 @@ type Product = {
   currency: string;
   stockQuantity: number;
   category?: { _id: string; name: string; slug: string };
-  condition: 'vintage' | 'restored' | 'used';
+  condition: 'very_good' | 'good' | 'okay';
   shortDescription: string;
   fullDescription: string;
   images: string[];
@@ -36,7 +36,7 @@ export default function EditProductForm({ product, categories }: { product: Prod
   const [currency, setCurrency] = useState(product.currency ?? 'EUR');
   const [stockQuantity, setStockQuantity] = useState(String(product.stockQuantity ?? 0));
   const [categoryId, setCategoryId] = useState<string>(initialCategoryId);
-  const [condition, setCondition] = useState<Product['condition']>(product.condition ?? 'vintage');
+  const [condition, setCondition] = useState<Product['condition']>(product.condition ?? 'very_good');
   const [shortDescription, setShortDescription] = useState(product.shortDescription ?? '');
   const [fullDescription, setFullDescription] = useState(product.fullDescription ?? '');
   const [imagesText, setImagesText] = useState(Array.isArray(product.images) ? product.images.join('\n') : '');
@@ -168,9 +168,9 @@ export default function EditProductForm({ product, categories }: { product: Prod
       <div style={formStyle}>
         <label style={labelStyle}>Condition</label>
         <select value={condition} onChange={(e) => setCondition(e.target.value as Product['condition'])} style={inputStyle}>
-          <option value="vintage">Vintage</option>
-          <option value="restored">Restored</option>
-          <option value="used">Used</option>
+          <option value="very_good">Very good</option>
+          <option value="good">Good</option>
+          <option value="okay">Okay</option>
         </select>
       </div>
 

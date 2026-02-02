@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import Nav from '@/app/components/Nav';
 
 export default function HomePage() {

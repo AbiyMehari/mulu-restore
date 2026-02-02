@@ -17,7 +17,7 @@ type ProductItem = {
   price: number; // cents
   stockQuantity: number;
   category?: { _id: string; name: string; slug: string };
-  condition: 'vintage' | 'restored' | 'used';
+  condition: 'very_good' | 'good' | 'okay';
   shortDescription: string;
   fullDescription: string;
   images?: string[];
@@ -36,7 +36,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   const [price, setPrice] = useState('');
   const [stockQuantity, setStockQuantity] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [condition, setCondition] = useState<'vintage' | 'restored' | 'used'>('vintage');
+  const [condition, setCondition] = useState<'very_good' | 'good' | 'okay'>('very_good');
   const [shortDescription, setShortDescription] = useState('');
   const [fullDescription, setFullDescription] = useState('');
   const [imagesText, setImagesText] = useState('');
@@ -77,7 +77,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         setPrice(item.price != null ? (item.price / 100).toFixed(2) : '');
         setStockQuantity(String(item.stockQuantity ?? 0));
         setCategoryId(item.category?._id ?? '');
-        setCondition(item.condition ?? 'vintage');
+        setCondition(item.condition ?? 'very_good');
         setShortDescription(item.shortDescription ?? '');
         setFullDescription(item.fullDescription ?? '');
         setImagesText(Array.isArray(item.images) ? item.images.join('\n') : '');
@@ -149,18 +149,16 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     }
   };
 
-  const formStyle = { marginBottom: '1rem' };
-  const labelStyle = { display: 'block', marginBottom: '0.25rem' };
-  const inputStyle = { width: '100%', maxWidth: '400px', padding: '0.5rem' };
-
   if (loading) {
     return (
       <div>
-        <div style={{ marginBottom: '1rem' }}>
-          <Link href="/admin/products">← Back to Products</Link>
+        <div className="mb-4">
+          <Link href="/admin/products" className="text-green-700 hover:text-green-800 transition-colors">
+            ← Back to Products
+          </Link>
         </div>
-        <h1>Edit Product</h1>
-        <p>Loading...</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Edit Product</h1>
+        <p className="text-gray-600">Loading...</p>
       </div>
     );
   }
@@ -168,123 +166,202 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   if (notFound) {
     return (
       <div>
-        <div style={{ marginBottom: '1rem' }}>
-          <Link href="/admin/products">← Back to Products</Link>
+        <div className="mb-4">
+          <Link href="/admin/products" className="text-green-700 hover:text-green-800 transition-colors">
+            ← Back to Products
+          </Link>
         </div>
-        <h1>Edit Product</h1>
-        <p>Not found</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Edit Product</h1>
+        <p className="text-red-600">Product not found</p>
       </div>
     );
   }
 
   return (
     <div>
-      <div style={{ marginBottom: '1rem' }}>
-        <Link href="/admin/products">← Back to Products</Link>
+      <div className="mb-8">
+        <Link href="/admin/products" className="text-green-700 hover:text-green-800 transition-colors">
+          ← Back to Products
+        </Link>
       </div>
 
-      <h1>Edit Product</h1>
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Edit Product</h1>
+        <div className="w-24 h-1 bg-green-700"></div>
+      </div>
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: '500px', marginTop: '1rem' }}>
-        <div style={formStyle}>
-          <label style={labelStyle}>Title</label>
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={inputStyle} />
-        </div>
-
-        <div style={formStyle}>
-          <label style={labelStyle}>Slug</label>
-          <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} required style={inputStyle} />
-        </div>
-
-        <div style={formStyle}>
-          <label style={labelStyle}>Price (EUR)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            required
-            style={inputStyle}
-          />
-        </div>
-
-        <div style={formStyle}>
-          <label style={labelStyle}>Stock</label>
-          <input
-            type="number"
-            min="0"
-            value={stockQuantity}
-            onChange={(e) => setStockQuantity(e.target.value)}
-            required
-            style={inputStyle}
-          />
-        </div>
-
-        <div style={formStyle}>
-          <label style={labelStyle}>Category</label>
-          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required style={inputStyle}>
-            <option value="">Select a category</option>
-            {categories.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={formStyle}>
-          <label style={labelStyle}>Condition</label>
-          <select value={condition} onChange={(e) => setCondition(e.target.value as any)} style={inputStyle}>
-            <option value="vintage">Vintage</option>
-            <option value="restored">Restored</option>
-            <option value="used">Used</option>
-          </select>
-        </div>
-
-        <div style={formStyle}>
-          <label style={labelStyle}>Short description</label>
-          <textarea
-            value={shortDescription}
-            onChange={(e) => setShortDescription(e.target.value)}
-            required
-            rows={2}
-            style={{ ...inputStyle, width: '100%' }}
-          />
-        </div>
-
-        <div style={formStyle}>
-          <label style={labelStyle}>Full description</label>
-          <textarea
-            value={fullDescription}
-            onChange={(e) => setFullDescription(e.target.value)}
-            required
-            rows={4}
-            style={{ ...inputStyle, width: '100%' }}
-          />
-        </div>
-
-        <div style={formStyle}>
-          <label style={labelStyle}>Images (one URL per line)</label>
-          <textarea
-            value={imagesText}
-            onChange={(e) => setImagesText(e.target.value)}
-            rows={3}
-            placeholder="https://..."
-            style={{ ...inputStyle, width: '100%' }}
-          />
-        </div>
-
-        {message && (
-          <div style={{ marginBottom: '1rem', color: message.type === 'error' ? '#b91c1c' : '#15803d' }}>
-            {message.text}
+      <div className="bg-white rounded-lg shadow-md p-8 max-w-3xl">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+              Title *
+            </label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+            />
           </div>
-        )}
 
-        <button type="submit" disabled={submitting} style={{ padding: '0.5rem 1rem' }}>
-          {submitting ? 'Saving...' : 'Save'}
-        </button>
-      </form>
+          <div>
+            <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-2">
+              Slug *
+            </label>
+            <input
+              id="slug"
+              type="text"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
+                Price (EUR) *
+              </label>
+              <input
+                id="price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="stock" className="block text-sm font-medium text-gray-700 mb-2">
+                Stock *
+              </label>
+              <input
+                id="stock"
+                type="number"
+                min="0"
+                value={stockQuantity}
+                onChange={(e) => setStockQuantity(e.target.value)}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                Category *
+              </label>
+              <select
+                id="category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+              >
+                <option value="">Select a category</option>
+                {categories.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="condition" className="block text-sm font-medium text-gray-700 mb-2">
+                Condition *
+              </label>
+              <select
+                id="condition"
+                value={condition}
+                onChange={(e) => setCondition(e.target.value as any)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+              >
+                <option value="very_good">Very good</option>
+                <option value="good">Good</option>
+                <option value="okay">Okay</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="shortDescription" className="block text-sm font-medium text-gray-700 mb-2">
+              Short description *
+            </label>
+            <textarea
+              id="shortDescription"
+              value={shortDescription}
+              onChange={(e) => setShortDescription(e.target.value)}
+              required
+              rows={2}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors resize-y"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="fullDescription" className="block text-sm font-medium text-gray-700 mb-2">
+              Full description *
+            </label>
+            <textarea
+              id="fullDescription"
+              value={fullDescription}
+              onChange={(e) => setFullDescription(e.target.value)}
+              required
+              rows={5}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors resize-y"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="images" className="block text-sm font-medium text-gray-700 mb-2">
+              Images (one URL per line)
+            </label>
+            <textarea
+              id="images"
+              value={imagesText}
+              onChange={(e) => setImagesText(e.target.value)}
+              rows={4}
+              placeholder="https://..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors resize-y font-mono text-sm"
+            />
+          </div>
+
+          {message && (
+            <div
+              className={`p-4 rounded-lg ${
+                message.type === 'error'
+                  ? 'bg-red-50 border border-red-200 text-red-700'
+                  : 'bg-green-50 border border-green-200 text-green-700'
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
+
+          <div className="flex gap-4">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="bg-green-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-800 transition-colors shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </button>
+            <Link
+              href="/admin/products"
+              className="bg-gray-200 text-gray-800 px-8 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </Link>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
