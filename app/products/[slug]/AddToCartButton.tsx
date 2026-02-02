@@ -9,8 +9,6 @@ export default function AddToCartButton({
   title,
   price,
   stockQuantity,
-  // Accept these optional props because the server page passes them.
-  // We intentionally do not persist them to localStorage.
   slug: _slug,
   image: _image,
 }: {
@@ -35,32 +33,50 @@ export default function AddToCartButton({
       const current = readCart();
       const existing = current.find((x) => x.productId === productId);
       const currentQty = existing?.quantity ?? 0;
-      if (currentQty >= stock) {
-        setMessage(`Only ${stock} in stock.`);
-        window.setTimeout(() => setMessage(null), 2000);
+      // Check if adding 1 more would exceed stock
+      if (currentQty + 1 > stock) {
+        if (currentQty > 0) {
+          setMessage(`You already have ${currentQty} in your cart. Only ${stock} available in stock.`);
+        } else {
+          setMessage(`Only ${stock} in stock.`);
+        }
+        window.setTimeout(() => setMessage(null), 3000);
         return;
       }
     }
 
     addToCartStorage({ productId, title, price }, 1);
-    setMessage('Added to cart.');
-    window.setTimeout(() => setMessage(null), 1500);
+    setMessage('✓ Added to cart!');
+    window.setTimeout(() => setMessage(null), 2000);
   };
 
+  const isOutOfStock = typeof stockQuantity === 'number' && stockQuantity <= 0;
+
   return (
-    <div style={{ marginTop: '0.75rem' }}>
+    <div className="mt-6">
       <button
         type="button"
         onClick={onAdd}
-        disabled={typeof stockQuantity === 'number' ? stockQuantity <= 0 : false}
-        style={{ padding: '0.5rem 0.75rem', opacity: typeof stockQuantity === 'number' && stockQuantity <= 0 ? 0.6 : 1 }}
+        disabled={isOutOfStock}
+        className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition-colors shadow-lg hover:shadow-xl ${
+          isOutOfStock
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : 'bg-green-700 text-white hover:bg-green-800'
+        }`}
       >
-        Add to cart
+        {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
       </button>
-      {message ? (
-        <div style={{ marginTop: '0.5rem', color: message.toLowerCase().includes('stock') ? '#b91c1c' : '#15803d' }}>{message}</div>
-      ) : null}
+      {message && (
+        <div
+          className={`mt-3 p-3 rounded-lg text-sm font-medium ${
+            message.toLowerCase().includes('stock') || message.toLowerCase().includes('only')
+              ? 'bg-red-50 text-red-700 border border-red-200'
+              : 'bg-green-50 text-green-700 border border-green-200'
+          }`}
+        >
+          {message}
+        </div>
+      )}
     </div>
   );
 }
-

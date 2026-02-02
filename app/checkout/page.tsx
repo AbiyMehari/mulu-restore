@@ -1,30 +1,38 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { useCart } from '@/app/providers/CartProvider';
+import { readCart } from '@/lib/cart';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, totalItems, totalAmount } = useCart();
   const eur = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' });
   const [stockById, setStockById] = useState<Record<string, number | null>>({});
+  const [items, setItems] = useState<Array<{ productId: string; title: string; price: number; quantity: number }>>([]);
 
-  // Explicitly read localStorage on mount to avoid showing "empty cart"
-  // during the initial cart hydration window.
-  const [storedCount, setStoredCount] = useState<number | null>(null);
+  // Read cart from localStorage
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem('mulu_cart');
-      const parsed = raw ? JSON.parse(raw) : [];
-      setStoredCount(Array.isArray(parsed) ? parsed.length : 0);
-    } catch {
-      setStoredCount(0);
-    }
+    const cart = readCart();
+    setItems(cart);
   }, []);
 
-  // Load stock for current cart items (client-side validation)
+  // Listen for cart updates
+  useEffect(() => {
+    const onUpdate = () => setItems(readCart());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'mulu_cart') onUpdate();
+    };
+    window.addEventListener('mulu_cart_updated', onUpdate);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('mulu_cart_updated', onUpdate);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  // Load stock for current cart items
   useEffect(() => {
     let cancelled = false;
     async function loadStock() {
@@ -153,6 +161,9 @@ export default function CheckoutPage() {
     return problems;
   }, [items, stockById]);
 
+  const totalItems = useMemo(() => items.reduce((sum, it) => sum + (it.quantity || 0), 0), [items]);
+  const totalAmount = useMemo(() => items.reduce((sum, it) => sum + (it.price || 0) * (it.quantity || 0), 0), [items]);
+
   const canPay = items.length > 0 && Object.keys(currentErrors).length === 0 && !submitting && stockProblems.length === 0;
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -220,134 +231,288 @@ export default function CheckoutPage() {
     }
   };
 
-  if (items.length === 0 && storedCount === null) {
+  if (items.length === 0) {
     return (
-      <div>
-        <h1>Checkout</h1>
-        <p>Loading your cart…</p>
-      </div>
-    );
-  }
-
-  if (items.length === 0 && (storedCount ?? 0) === 0) {
-    return (
-      <div>
-        <h1>Checkout</h1>
-        <p>Your cart is empty.</p>
-        <Link href="/products">Go to products</Link>
+      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+        <nav className="bg-white/80 backdrop-blur-sm border-b border-green-100 sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <Link href="/" className="flex items-center gap-3">
+                <Image
+                  src="/logo.png"
+                  alt="Mulu ReStore Logo"
+                  width={40}
+                  height={40}
+                  className="object-contain"
+                />
+                <span className="text-2xl font-bold text-green-800">
+                  Mulu ReStore
+                </span>
+              </Link>
+              <div className="flex gap-6">
+                <Link href="/products" className="text-gray-700 hover:text-green-700 transition-colors">
+                  Products
+                </Link>
+                <Link href="/cart" className="text-gray-700 hover:text-green-700 transition-colors">
+                  Cart
+                </Link>
+                <Link href="/auth/login" className="text-gray-700 hover:text-green-700 transition-colors">
+                  Login
+                </Link>
+              </div>
+            </div>
+          </div>
+        </nav>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
+          <div className="bg-white rounded-lg shadow-md p-12">
+            <div className="text-6xl mb-4">🛒</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Your cart is empty</h1>
+            <p className="text-gray-600 mb-6">Add some items to your cart before checkout.</p>
+            <Link
+              href="/products"
+              className="inline-block bg-green-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-800 transition-colors shadow-lg hover:shadow-xl"
+            >
+              Browse Products
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <div style={{ marginBottom: '1rem' }}>
-        <Link href="/products">← Back to Products</Link>
-      </div>
-
-      <h1>Checkout</h1>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1rem' }}>
-        <form onSubmit={onSubmit} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '1rem' }}>
-          <h2 style={{ marginTop: 0 }}>Shipping & Contact</h2>
-
-          <div style={{ marginBottom: '0.75rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem' }}>Full name</label>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} required style={{ width: '100%', padding: '0.5rem' }} />
-            {fieldErrors.name ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.name}</div> : null}
-          </div>
-
-          <div style={{ marginBottom: '0.75rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem' }}>Email</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} required type="email" style={{ width: '100%', padding: '0.5rem' }} />
-            {fieldErrors.email ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.email}</div> : null}
-          </div>
-
-          <div style={{ marginBottom: '0.75rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem' }}>Phone (optional)</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} style={{ width: '100%', padding: '0.5rem' }} />
-          </div>
-
-          <div style={{ marginBottom: '0.75rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem' }}>Street</label>
-            <input value={street} onChange={(e) => setStreet(e.target.value)} required style={{ width: '100%', padding: '0.5rem' }} />
-            {fieldErrors.street ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.street}</div> : null}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.25rem' }}>City</label>
-              <input value={city} onChange={(e) => setCity(e.target.value)} required style={{ width: '100%', padding: '0.5rem' }} />
-              {fieldErrors.city ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.city}</div> : null}
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.25rem' }}>Postal code</label>
-              <input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} required style={{ width: '100%', padding: '0.5rem' }} />
-              {fieldErrors.postalCode ? <div style={{ marginTop: '0.25rem', color: '#b91c1c' }}>{fieldErrors.postalCode}</div> : null}
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '0.75rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem' }}>Country</label>
-            <input value={country} onChange={(e) => setCountry(e.target.value)} required style={{ width: '100%', padding: '0.5rem' }} />
-          </div>
-
-          {message ? (
-            <div style={{ marginBottom: '0.75rem', color: message.type === 'error' ? '#b91c1c' : '#15803d' }}>
-              {message.text}
-            </div>
-          ) : null}
-
-          {stockProblems.length > 0 ? (
-            <div style={{ marginBottom: '0.75rem', color: '#b91c1c' }}>
-              Some items exceed available stock. Please adjust your cart.
-            </div>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={!canPay}
-            title={!canPay ? 'Please complete required fields' : undefined}
-            style={{ padding: '0.5rem 0.75rem' }}
-          >
-            {submitting ? 'Processing…' : 'Pay'}
-          </button>
-        </form>
-
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '1rem' }}>
-          <h2 style={{ marginTop: 0 }}>Order summary</h2>
-
-          <div style={{ marginTop: '0.75rem' }}>
-            {items.map((it) => (
-              <div key={it.productId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <div style={{ paddingRight: '1rem' }}>
-                  <div style={{ fontWeight: 600 }}>{it.title}</div>
-                  <div style={{ color: '#374151' }}>
-                    Qty {it.quantity} × {eur.format((it.price ?? 0) / 100)}
-                  </div>
-                  {typeof stockById[it.productId] === 'number' && it.quantity > (stockById[it.productId] as number) ? (
-                    <div style={{ color: '#b91c1c', marginTop: '0.25rem' }}>
-                      Only {stockById[it.productId]} in stock
-                    </div>
-                  ) : null}
-                </div>
-                <div style={{ fontWeight: 600 }}>{eur.format(((it.price ?? 0) * (it.quantity ?? 0)) / 100)}</div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ borderTop: '1px solid #e5e7eb', marginTop: '0.75rem', paddingTop: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Total items</span>
-              <strong>{totalItems()}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem' }}>
-              <span>Total</span>
-              <strong>{eur.format(totalAmount() / 100)}</strong>
+    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+      {/* Navigation */}
+      <nav className="bg-white/80 backdrop-blur-sm border-b border-green-100 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/" className="flex items-center gap-3">
+              <Image
+                src="/logo.png"
+                alt="Mulu ReStore Logo"
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+              <span className="text-2xl font-bold text-green-800">
+                Mulu ReStore
+              </span>
+            </Link>
+            <div className="flex gap-6">
+              <Link href="/products" className="text-gray-700 hover:text-green-700 transition-colors">
+                Products
+              </Link>
+              <Link href="/cart" className="text-gray-700 hover:text-green-700 transition-colors">
+                Cart
+              </Link>
+              <Link href="/auth/login" className="text-gray-700 hover:text-green-700 transition-colors">
+                Login
+              </Link>
             </div>
           </div>
         </div>
-      </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-green-100 to-transparent">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">Checkout</h1>
+          <p className="text-lg text-gray-600">Complete your order</p>
+        </div>
+      </section>
+
+      {/* Checkout Content */}
+      <section className="py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Shipping & Contact Form */}
+            <div className="bg-white rounded-lg shadow-md p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Shipping & Contact</h2>
+
+              <form onSubmit={onSubmit} className="space-y-6">
+                <div>
+                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Full name *
+                  </label>
+                  <input
+                    id="fullName"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+                  />
+                  {fieldErrors.name && (
+                    <div className="mt-1 text-sm text-red-600">{fieldErrors.name}</div>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email *
+                  </label>
+                  <input
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    type="email"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+                  />
+                  {fieldErrors.email && (
+                    <div className="mt-1 text-sm text-red-600">{fieldErrors.email}</div>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone (optional)
+                  </label>
+                  <input
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="street" className="block text-sm font-medium text-gray-700 mb-2">
+                    Street *
+                  </label>
+                  <input
+                    id="street"
+                    value={street}
+                    onChange={(e) => setStreet(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+                  />
+                  {fieldErrors.street && (
+                    <div className="mt-1 text-sm text-red-600">{fieldErrors.street}</div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
+                      City *
+                    </label>
+                    <input
+                      id="city"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+                    />
+                    {fieldErrors.city && (
+                      <div className="mt-1 text-sm text-red-600">{fieldErrors.city}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
+                      Postal code *
+                    </label>
+                    <input
+                      id="postalCode"
+                      value={postalCode}
+                      onChange={(e) => setPostalCode(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+                    />
+                    {fieldErrors.postalCode && (
+                      <div className="mt-1 text-sm text-red-600">{fieldErrors.postalCode}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
+                    Country *
+                  </label>
+                  <input
+                    id="country"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-colors"
+                  />
+                </div>
+
+                {message && (
+                  <div
+                    className={`p-4 rounded-lg ${
+                      message.type === 'error'
+                        ? 'bg-red-50 border border-red-200 text-red-700'
+                        : 'bg-green-50 border border-green-200 text-green-700'
+                    }`}
+                  >
+                    {message.text}
+                  </div>
+                )}
+
+                {stockProblems.length > 0 && (
+                  <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700">
+                    Some items exceed available stock. Please adjust your cart.
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={!canPay}
+                  title={!canPay ? 'Please complete required fields' : undefined}
+                  className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition-colors shadow-lg hover:shadow-xl ${
+                    !canPay
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-700 text-white hover:bg-green-800'
+                  }`}
+                >
+                  {submitting ? 'Processing…' : 'Proceed to Payment'}
+                </button>
+              </form>
+            </div>
+
+            {/* Order Summary */}
+            <div className="bg-white rounded-lg shadow-md p-8 h-fit">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Order Summary</h2>
+
+              <div className="space-y-4 mb-6">
+                {items.map((it) => {
+                  const stock = stockById[it.productId];
+                  const hasStockIssue = typeof stock === 'number' && it.quantity > stock;
+                  return (
+                    <div key={it.productId} className="flex justify-between items-start pb-4 border-b border-gray-200">
+                      <div className="flex-1 pr-4">
+                        <div className="font-semibold text-gray-900">{it.title}</div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          Qty {it.quantity} × {eur.format((it.price ?? 0) / 100)}
+                        </div>
+                        {hasStockIssue && (
+                          <div className="text-sm text-red-600 mt-1 font-medium">
+                            Only {stock} in stock
+                          </div>
+                        )}
+                      </div>
+                      <div className="font-semibold text-gray-900">
+                        {eur.format(((it.price ?? 0) * (it.quantity ?? 0)) / 100)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="border-t border-gray-200 pt-4 space-y-2">
+                <div className="flex justify-between text-gray-700">
+                  <span>Total items</span>
+                  <span className="font-semibold">{totalItems}</span>
+                </div>
+                <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200">
+                  <span>Total</span>
+                  <span className="text-green-700">{eur.format(totalAmount / 100)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
