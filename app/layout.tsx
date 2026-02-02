@@ -1,10 +1,10 @@
-// TODO: Implement root layout with metadata, fonts, and providers
 import type { Metadata } from 'next';
 import { CartProvider } from '@/app/providers/CartProvider';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Mulu ReStore',
-  description: 'Curated vintage and restored furniture',
+  title: 'Mulu ReStore - Intercultural. Sustainable. Connected.',
+  description: 'Curated vintage and restored furniture combining German craftsmanship with Ethiopian cultural heritage',
 };
 
 export default function RootLayout({

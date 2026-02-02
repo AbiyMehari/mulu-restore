@@ -1,1 +1,9 @@
-/* TODO: Add Tailwind CSS directives and global styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased;
+  }
+}

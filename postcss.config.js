@@ -1,1 +1,6 @@
-// TODO: Configure PostCSS settings
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
