@@ -22,3 +22,4 @@ pnpm-debug.log*
 
 # typescript
 *.tsbuildinfo
+MULU_RESTORE_FLOW.md
