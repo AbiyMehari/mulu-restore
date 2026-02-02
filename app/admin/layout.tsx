@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getCurrentSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import LogoutButton from './LogoutButton';
 
 export default async function AdminLayout({
   children,
@@ -33,6 +34,9 @@ export default async function AdminLayout({
               </span>
             </Link>
             <div className="flex gap-6 items-center">
+              <span className="text-sm text-green-700 font-medium">
+                Admin
+              </span>
               <Link href="/" className="text-gray-700 hover:text-green-700 transition-colors">
                 Store
               </Link>
@@ -51,6 +55,7 @@ export default async function AdminLayout({
               <Link href="/admin/users" className="text-gray-700 hover:text-green-700 transition-colors">
                 Users
               </Link>
+              <LogoutButton />
             </div>
           </div>
         </div>
