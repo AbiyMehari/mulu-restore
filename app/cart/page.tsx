@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { clearCart, readCart, removeFromCart, setCartQuantity, type CartItem, writeCart } from '@/lib/cart';
@@ -58,7 +59,6 @@ export default function CartPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    // Safe load + normalize localStorage("mulu_cart") so bad/legacy shapes can't crash the page.
     let parsed: unknown = [];
     let hadRaw = false;
     try {
@@ -71,7 +71,6 @@ export default function CartPage() {
     }
 
     const { items: normalized, invalidRemoved, duplicatesMerged } = normalizeCartItems(parsed);
-    // Always write back normalized cart so future reads are safe/consistent.
     writeCart(normalized);
     setItems(normalized);
 
@@ -107,15 +106,12 @@ export default function CartPage() {
         return;
       }
 
-      // Try to resolve stock using the public products list (ObjectId-based cart ids),
-      // and fall back to slug-detail for non-ObjectId ids.
       const isObjectId = (s: string) => /^[a-fA-F0-9]{24}$/.test(s);
       const objectIds = ids.filter(isObjectId);
       const slugIds = ids.filter((x) => !isObjectId(x));
 
       const next: Record<string, number | null> = {};
 
-      // Page through products until we find all objectIds (cart is small).
       if (objectIds.length > 0) {
         const remaining = new Set(objectIds);
         let page = 1;
@@ -137,7 +133,6 @@ export default function CartPage() {
         for (const id of remaining) next[id] = null;
       }
 
-      // Slug-based fallback
       for (const slug of slugIds) {
         try {
           const res = await fetch(`/api/products/${encodeURIComponent(slug)}`, { cache: 'no-store' });
@@ -156,7 +151,6 @@ export default function CartPage() {
       if (cancelled) return;
       setStockById(next);
 
-      // Clamp quantities to stock, and remove items with stock 0
       let changed = false;
       for (const it of readCart()) {
         const stock = next[it.productId];
@@ -200,8 +194,10 @@ export default function CartPage() {
   };
 
   const onClear = () => {
-    clearCart();
-    setItems([]);
+    if (window.confirm('Clear all items from cart?')) {
+      clearCart();
+      setItems([]);
+    }
   };
 
   const onRemove = (productId: string) => {
@@ -216,124 +212,190 @@ export default function CartPage() {
   }, [items]);
 
   return (
-    <div>
-      <div style={{ marginBottom: '1rem' }}>
-        <Link href="/products">← Back to Products</Link>
-      </div>
-
-      <h1>Cart</h1>
-
-      {notice ? <div style={{ marginTop: '0.5rem', color: '#374151' }}>{notice}</div> : null}
-      {stockNote ? <div style={{ marginTop: '0.5rem', color: '#b91c1c' }}>{stockNote}</div> : null}
-
-      {items.length === 0 ? (
-        <div style={{ marginTop: '0.75rem' }}>
-          <p>Your cart is empty.</p>
-          <Link href="/products">Go to products</Link>
+    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+      {/* Navigation */}
+      <nav className="bg-white/80 backdrop-blur-sm border-b border-green-100 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/" className="flex items-center gap-3">
+              <Image
+                src="/logo.png"
+                alt="Mulu ReStore Logo"
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+              <span className="text-2xl font-bold text-green-800">
+                Mulu ReStore
+              </span>
+            </Link>
+            <div className="flex gap-6">
+              <Link href="/products" className="text-gray-700 hover:text-green-700 transition-colors">
+                Products
+              </Link>
+              <Link href="/cart" className="text-gray-700 hover:text-green-700 transition-colors font-medium">
+                Cart
+              </Link>
+              <Link href="/auth/login" className="text-gray-700 hover:text-green-700 transition-colors">
+                Login
+              </Link>
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          <div style={{ marginTop: '1rem' }}>
-            {items.map((it) => {
-              const lineTotal = (it.price || 0) * (it.quantity || 0);
-              const stock = stockById[it.productId];
-              const outOfStock = typeof stock === 'number' && stock <= 0;
-              const atMax = typeof stock === 'number' && it.quantity >= stock;
-              return (
-                <div
-                  key={it.productId}
-                  style={{
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 8,
-                    padding: '0.75rem',
-                    marginBottom: '0.75rem',
-                    display: 'flex',
-                    gap: '0.75rem',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>{it.title}</div>
-                      <div style={{ color: '#374151', marginTop: '0.25rem' }}>{eur.format((it.price ?? 0) / 100)} each</div>
-                      {typeof stock === 'number' ? (
-                        <div style={{ marginTop: '0.25rem', color: outOfStock ? '#b91c1c' : '#374151' }}>
-                          {outOfStock ? 'No longer available' : `In stock: ${stock}`}
+      </nav>
+
+      {/* Hero Section */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-green-100 to-transparent">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">Shopping Cart</h1>
+          <p className="text-lg text-gray-600">Review your items before checkout</p>
+        </div>
+      </section>
+
+      {/* Cart Content */}
+      <section className="py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto">
+          {/* Notices */}
+          {notice && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-4">
+              {notice}
+            </div>
+          )}
+          {stockNote && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-lg mb-4">
+              {stockNote}
+            </div>
+          )}
+
+          {/* Empty Cart */}
+          {items.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-md p-12 text-center">
+              <div className="text-6xl mb-4">🛒</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
+              <p className="text-gray-600 mb-6">Start adding items to your cart to see them here.</p>
+              <Link
+                href="/products"
+                className="inline-block bg-green-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-800 transition-colors shadow-lg hover:shadow-xl"
+              >
+                Browse Products
+              </Link>
+            </div>
+          ) : (
+            <>
+              {/* Cart Items */}
+              <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+                <div className="divide-y divide-gray-200">
+                  {items.map((it) => {
+                    const lineTotal = (it.price || 0) * (it.quantity || 0);
+                    const stock = stockById[it.productId];
+                    const outOfStock = typeof stock === 'number' && stock <= 0;
+                    const atMax = typeof stock === 'number' && it.quantity >= stock;
+                    return (
+                      <div key={it.productId} className="p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-1">{it.title}</h3>
+                            <div className="text-gray-600 mb-2">
+                              {eur.format((it.price ?? 0) / 100)} each
+                            </div>
+                            {typeof stock === 'number' ? (
+                              <div className={`text-sm ${outOfStock ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                                {outOfStock ? 'No longer available' : `In stock: ${stock}`}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-400">Checking stock…</div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-4 w-full sm:w-auto">
+                            {/* Quantity Controls */}
+                            <div className="flex items-center border border-gray-300 rounded-lg">
+                              <button
+                                type="button"
+                                onClick={() => onDec(it.productId, it.quantity)}
+                                className="px-3 py-2 text-gray-700 hover:bg-gray-100 transition-colors font-semibold"
+                              >
+                                −
+                              </button>
+                              <input
+                                value={it.quantity}
+                                readOnly
+                                inputMode="numeric"
+                                className="w-16 px-3 py-2 text-center border-x border-gray-300 focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => onInc(it.productId, it.quantity)}
+                                disabled={atMax || outOfStock}
+                                className={`px-3 py-2 font-semibold transition-colors ${
+                                  atMax || outOfStock
+                                    ? 'text-gray-400 cursor-not-allowed'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                                title={atMax ? 'Max stock reached' : undefined}
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            {/* Line Total */}
+                            <div className="text-lg font-bold text-gray-900 min-w-[100px] text-right">
+                              {eur.format(lineTotal / 100)}
+                            </div>
+
+                            {/* Remove Button */}
+                            <button
+                              type="button"
+                              onClick={() => onRemove(it.productId)}
+                              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                      ) : (
-                        <div style={{ marginTop: '0.25rem', color: '#6b7280' }}>Checking stock…</div>
-                      )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Totals and Actions */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                  <div className="space-y-2">
+                    <div className="text-lg">
+                      <span className="font-semibold text-gray-700">Total items:</span>{' '}
+                      <span className="text-gray-900 font-bold">{totals.totalItems}</span>
+                    </div>
+                    <div className="text-2xl">
+                      <span className="font-semibold text-gray-700">Total amount:</span>{' '}
+                      <span className="text-green-700 font-bold">{eur.format(totals.totalAmount / 100)}</span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <button type="button" onClick={() => onDec(it.productId, it.quantity)} style={{ padding: '0.25rem 0.5rem' }}>
-                        −
-                      </button>
-                      <input
-                        value={it.quantity}
-                        readOnly
-                        inputMode="numeric"
-                        style={{ width: 64, padding: '0.25rem 0.5rem' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => onInc(it.productId, it.quantity)}
-                        disabled={atMax || outOfStock}
-                        style={{ padding: '0.25rem 0.5rem', opacity: atMax || outOfStock ? 0.6 : 1 }}
-                        title={atMax ? 'Max stock reached' : undefined}
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <div style={{ minWidth: 120, textAlign: 'right', fontWeight: 600 }}>
-                      {eur.format(lineTotal / 100)}
-                    </div>
-
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <button
                       type="button"
-                      onClick={() => onRemove(it.productId)}
-                      style={{ padding: '0.25rem 0.5rem', background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 6 }}
+                      onClick={onClear}
+                      className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
                     >
-                      Remove
+                      Clear Cart
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push('/checkout')}
+                      disabled={items.length === 0}
+                      className="bg-green-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-800 transition-colors shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Go to Checkout
                     </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-
-          <div style={{ marginTop: '1rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', maxWidth: 700, gap: '1rem', flexWrap: 'wrap' }}>
-              <div>
-                <div>
-                  <strong>Total items:</strong> {totals.totalItems}
-                </div>
-                <div style={{ marginTop: '0.25rem' }}>
-                  <strong>Total amount:</strong> {eur.format(totals.totalAmount / 100)}
-                </div>
               </div>
-
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button type="button" onClick={onClear} style={{ padding: '0.5rem 0.75rem' }}>
-                  Clear cart
-                </button>
-                <button
-                  type="button"
-                  onClick={() => router.push('/checkout')}
-                  disabled={items.length === 0}
-                  style={{ padding: '0.5rem 0.75rem' }}
-                >
-                  Go to checkout
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+            </>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
