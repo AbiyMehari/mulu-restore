@@ -29,7 +29,7 @@ export default async function AdminLayout({
                 className="object-contain"
               />
               <span className="text-2xl font-bold text-green-800">
-                Mulu ReStore Admin
+                Mulu ReStore
               </span>
             </Link>
             <div className="flex gap-6 items-center">
