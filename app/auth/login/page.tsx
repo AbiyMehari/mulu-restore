@@ -8,10 +8,12 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const registered = searchParams.get('registered') === 'true';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(registered ? 'Account created successfully! Please sign in.' : null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,6 +87,12 @@ export default function LoginPage() {
               placeholder="Enter your password"
             />
           </div>
+          
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+              {success}
+            </div>
+          )}
           
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
