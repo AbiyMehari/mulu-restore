@@ -35,17 +35,23 @@ export default function LoginPage() {
 
     // If login successful, check user role and redirect accordingly
     if (result?.ok) {
+      setLoading(false);
+      setSuccess('Logged in successfully! Redirecting...');
+      
       const session = await getSession();
       const userRole = (session?.user as any)?.role;
 
-      if (userRole === 'admin') {
-        router.push('/admin');
-        router.refresh();
-      } else {
-        // For regular users, use callbackUrl or default to home
-        router.push(callbackUrl);
-        router.refresh();
-      }
+      // Small delay to show success message before redirect
+      setTimeout(() => {
+        if (userRole === 'admin') {
+          router.push('/admin');
+          router.refresh();
+        } else {
+          // For regular users, use callbackUrl or default to home
+          router.push(callbackUrl);
+          router.refresh();
+        }
+      }, 1000);
     }
   };
 

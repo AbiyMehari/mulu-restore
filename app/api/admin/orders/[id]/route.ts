@@ -66,9 +66,16 @@ export async function GET(_request: NextRequest, context: { params: { id: string
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
+    // Get customer email from user (if logged in) or guestEmail/shippingAddress.email (if guest)
+    const customerEmail = 
+      (order.user as any)?.email || 
+      order.guestEmail || 
+      (order.shippingAddress as any)?.email || 
+      null;
+
     const item = {
       _id: typeof order._id === 'string' ? order._id : order._id?.toString?.() ?? order._id,
-      user: { email: order.user?.email },
+      user: { email: customerEmail },
       status: order.status,
       currency: order.currency,
       totalAmount: order.totalAmount,

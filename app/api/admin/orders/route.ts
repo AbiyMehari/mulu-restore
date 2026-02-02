@@ -53,19 +53,28 @@ export async function GET() {
 
     const orders = await Order.find({})
       .sort({ createdAt: -1 })
-      .select('_id user items totalAmount currency status createdAt')
+      .select('_id user guestEmail shippingAddress items totalAmount currency status createdAt')
       .populate('user', 'email')
       .populate('items.product', 'title')
       .lean();
 
-    const items = orders.map((o: any) => ({
-      _id: typeof o._id === 'string' ? o._id : o._id?.toString?.() ?? o._id,
-      user: { email: o.user?.email },
-      totalAmount: o.totalAmount,
-      currency: o.currency,
-      status: o.status,
-      createdAt: o.createdAt,
-    }));
+    const items = orders.map((o: any) => {
+      // Get customer email from user (if logged in) or guestEmail/shippingAddress.email (if guest)
+      const customerEmail = 
+        o.user?.email || 
+        o.guestEmail || 
+        o.shippingAddress?.email || 
+        null;
+
+      return {
+        _id: typeof o._id === 'string' ? o._id : o._id?.toString?.() ?? o._id,
+        user: { email: customerEmail },
+        totalAmount: o.totalAmount,
+        currency: o.currency,
+        status: o.status,
+        createdAt: o.createdAt,
+      };
+    });
 
     return NextResponse.json({ items }, { status: 200 });
   } catch (error) {
